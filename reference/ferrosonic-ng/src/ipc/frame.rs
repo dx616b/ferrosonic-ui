@@ -1,0 +1,351 @@
+//! Wire format: `u32 LE length || JSON body`. JSON over bincode for
+//! debuggability with `socat`; throughput is plenty at this scale.
+
+// Variants span single bool to full snapshot; boxing helps nothing.
+
+use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+use crate::ipc::protocol::{DaemonEvent, DaemonRequest, DaemonResponse};
+
+/// Global cap on any frame body; protects readers from OOM.
+pub const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
+/// Tighter cap the daemon applies to inbound request frames.
+pub const MAX_REQUEST_FRAME_BYTES: usize = 1024 * 1024;
+
+/// One IPC message: request, response, or broadcast event.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Frame {
+    /// Client request awaiting a matching `Response`.
+    Request {
+        /// Correlation ID echoed in the response.
+        id: u64,
+        /// The command itself.
+        req: DaemonRequest,
+    },
+    /// `payload` is `Result<DaemonResponse, String>` so daemon-side
+    /// errors round-trip without per-variant wire encoding.
+    Response {
+        /// Correlation ID of the request being answered.
+        id: u64,
+        /// The reply or a daemon-side error message.
+        payload: Result<DaemonResponse, String>,
+    },
+    /// Unsolicited daemon broadcast to subscribers.
+    Event(DaemonEvent),
+}
+
+/// Result of a tolerant frame parse.
+///
+/// Splits "couldn't parse the envelope" (fatal) from "envelope OK, payload
+/// type unknown" so the reader can recover from forward/back protocol
+/// mismatches without severing the connection.
+#[derive(Debug)]
+pub enum FrameRead {
+    /// Fully parsed; payload variant was known.
+    Ok(Frame),
+    /// Envelope parsed but the request body was an unknown variant.
+    /// Daemon should reply with `Response { id, payload: Err(...) }`.
+    UnknownRequest {
+        /// Correlation ID from the envelope.
+        id: u64,
+        /// Raw JSON of the unrecognized request body.
+        body: String,
+    },
+    /// Envelope parsed but the response body was an unknown variant.
+    /// Client should resolve pending request `id` with an error.
+    UnknownResponse {
+        /// Correlation ID from the envelope.
+        id: u64,
+        /// Raw JSON of the unrecognized response payload.
+        body: String,
+    },
+    /// Envelope parsed but the event was an unknown variant. Receiver
+    /// should log and continue.
+    UnknownEvent {
+        /// Raw JSON of the unrecognized event.
+        body: String,
+    },
+}
+
+/// Errors raised while reading or writing frames.
+#[derive(Debug, thiserror::Error)]
+pub enum FrameError {
+    /// Socket read or write failed.
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+    /// Declared frame length exceeds the cap.
+    #[error("frame too large: {0} bytes")]
+    TooLarge(usize),
+    /// JSON encode or decode failed.
+    #[error("serialize: {0}")]
+    Serialize(#[from] serde_json::Error),
+    /// Peer closed cleanly between frames.
+    #[error("peer closed before frame complete")]
+    Closed,
+}
+
+/// `Closed` is clean EOF between frames; distinct from mid-frame disconnects which surface as `Io(UnexpectedEof)`.
+///
+/// ```
+/// use ferrosonic::ipc::frame::{read_frame, write_frame, Frame};
+/// use ferrosonic::ipc::protocol::DaemonRequest;
+/// tokio_test::block_on(async {
+///     let original = Frame::Request { id: 42, req: DaemonRequest::Ping };
+///     let mut buf: Vec<u8> = Vec::new();
+///     write_frame(&mut buf, &original).await.unwrap();
+///     let mut reader = buf.as_slice();
+///     let decoded = read_frame(&mut reader).await.unwrap();
+///     match decoded {
+///         Frame::Request { id, .. } => assert_eq!(id, 42),
+///         other => panic!("expected Request, got {:?}", other),
+///     }
+/// });
+/// ```
+///
+/// # Errors
+/// Returns a `FrameError` if the frame is malformed or exceeds the size limit.
+pub async fn read_frame<R>(reader: &mut R) -> Result<Frame, FrameError>
+where
+    R: AsyncReadExt + Unpin,
+{
+    let body = read_frame_body(reader).await?;
+    let frame: Frame = serde_json::from_slice(&body)?;
+    Ok(frame)
+}
+
+/// Reads the next frame and attempts a typed parse; on unknown variants returns the envelope metadata so the caller can keep the connection alive.
+///
+/// ```
+/// use ferrosonic::ipc::frame::{read_frame_lenient, FrameRead};
+/// tokio_test::block_on(async {
+///     let body = serde_json::json!({
+///         "Request": { "id": 99, "req": { "TotallyNewCommand": "hello" } }
+///     }).to_string();
+///     let mut buf = Vec::new();
+///     buf.extend_from_slice(&(body.len() as u32).to_le_bytes());
+///     buf.extend_from_slice(body.as_bytes());
+///     let mut reader = buf.as_slice();
+///     match read_frame_lenient(&mut reader).await.unwrap() {
+///         FrameRead::UnknownRequest { id, .. } => assert_eq!(id, 99),
+///         other => panic!("expected UnknownRequest, got {:?}", other),
+///     }
+/// });
+/// ```
+///
+/// # Errors
+/// Returns a `FrameError` if the frame is malformed or exceeds the size limit.
+pub async fn read_frame_lenient<R>(reader: &mut R) -> Result<FrameRead, FrameError>
+where
+    R: AsyncReadExt + Unpin,
+{
+    read_frame_lenient_with_cap(reader, MAX_FRAME_BYTES).await
+}
+
+/// Like [`read_frame_lenient`] but enforces a caller-supplied length cap. Used by the daemon to apply a tighter [`MAX_REQUEST_FRAME_BYTES`] than the global [`MAX_FRAME_BYTES`] on inbound requests.
+///
+/// ```
+/// use ferrosonic::ipc::frame::{read_frame_lenient_with_cap, FrameError};
+/// tokio_test::block_on(async {
+///     let oversized_len: u32 = 65;
+///     let cap: usize = 32;
+///     let mut buf = Vec::new();
+///     buf.extend_from_slice(&oversized_len.to_le_bytes());
+///     let mut reader = buf.as_slice();
+///     let err = read_frame_lenient_with_cap(&mut reader, cap).await.unwrap_err();
+///     assert!(matches!(err, FrameError::TooLarge(n) if n == oversized_len as usize));
+/// });
+/// ```
+///
+/// # Errors
+/// Returns a `FrameError` if the frame is malformed or exceeds the size limit.
+pub async fn read_frame_lenient_with_cap<R>(
+    reader: &mut R,
+    cap: usize,
+) -> Result<FrameRead, FrameError>
+where
+    R: AsyncReadExt + Unpin,
+{
+    let body = read_frame_body_with_cap(reader, cap).await?;
+
+    let typed_err = match serde_json::from_slice::<Frame>(&body) {
+        Ok(frame) => return Ok(FrameRead::Ok(frame)),
+        Err(e) => e,
+    };
+
+    let raw: serde_json::Value = serde_json::from_slice(&body)?;
+
+    if let Some(req) = raw.get("Request") {
+        if let Some(id) = req.get("id").and_then(serde_json::Value::as_u64) {
+            let inner = req
+                .get("req")
+                .map_or_else(|| "<missing>".into(), std::string::ToString::to_string);
+            return Ok(FrameRead::UnknownRequest { id, body: inner });
+        }
+    }
+    if let Some(resp) = raw.get("Response") {
+        if let Some(id) = resp.get("id").and_then(serde_json::Value::as_u64) {
+            let inner = resp
+                .get("payload")
+                .map_or_else(|| "<missing>".into(), std::string::ToString::to_string);
+            return Ok(FrameRead::UnknownResponse { id, body: inner });
+        }
+    }
+    if let Some(ev) = raw.get("Event") {
+        return Ok(FrameRead::UnknownEvent {
+            body: ev.to_string(),
+        });
+    }
+
+    Err(FrameError::Serialize(typed_err))
+}
+
+async fn read_frame_body<R>(reader: &mut R) -> Result<Vec<u8>, FrameError>
+where
+    R: AsyncReadExt + Unpin,
+{
+    read_frame_body_with_cap(reader, MAX_FRAME_BYTES).await
+}
+
+async fn read_frame_body_with_cap<R>(reader: &mut R, cap: usize) -> Result<Vec<u8>, FrameError>
+where
+    R: AsyncReadExt + Unpin,
+{
+    let mut len_buf = [0u8; 4];
+    match reader.read_exact(&mut len_buf).await {
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+            return Err(FrameError::Closed);
+        }
+        Err(e) => return Err(FrameError::Io(e)),
+    }
+    let len = u32::from_le_bytes(len_buf) as usize;
+    if len > cap {
+        return Err(FrameError::TooLarge(len));
+    }
+    let mut body = vec![0u8; len];
+    reader.read_exact(&mut body).await?;
+    Ok(body)
+}
+
+/// Single combined write so partial frames never reach the wire.
+///
+/// # Errors
+/// Returns a `FrameError` if the frame is malformed or exceeds the size limit.
+pub async fn write_frame<W>(writer: &mut W, frame: &Frame) -> Result<(), FrameError>
+where
+    W: AsyncWriteExt + Unpin,
+{
+    let body = serde_json::to_vec(frame)?;
+    if body.len() > MAX_FRAME_BYTES {
+        return Err(FrameError::TooLarge(body.len()));
+    }
+    let mut buf = Vec::with_capacity(4 + body.len());
+    // body.len() is checked <= MAX_FRAME_BYTES (16 MiB) above, so it fits u32 exactly.
+    #[allow(clippy::cast_possible_truncation)]
+    let len_prefix = (body.len() as u32).to_le_bytes();
+    buf.extend_from_slice(&len_prefix);
+    buf.extend_from_slice(&body);
+    writer.write_all(&buf).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipc::protocol::DaemonRequest;
+
+    #[tokio::test]
+    async fn frame_roundtrip_request() {
+        let original = Frame::Request {
+            id: 42,
+            req: DaemonRequest::TogglePause,
+        };
+        let mut buf: Vec<u8> = Vec::new();
+        write_frame(&mut buf, &original).await.unwrap();
+        let mut reader = buf.as_slice();
+        let decoded = read_frame(&mut reader).await.unwrap();
+        match decoded {
+            Frame::Request { id, req: _ } => assert_eq!(id, 42),
+            _ => panic!("expected Request, got {decoded:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn frame_roundtrip_response_ok() {
+        let original = Frame::Response {
+            id: 7,
+            payload: Ok(DaemonResponse::Pong),
+        };
+        let mut buf: Vec<u8> = Vec::new();
+        write_frame(&mut buf, &original).await.unwrap();
+        let mut reader = buf.as_slice();
+        let decoded = read_frame(&mut reader).await.unwrap();
+        match decoded {
+            Frame::Response { id, payload: Ok(_) } => assert_eq!(id, 7),
+            _ => panic!("expected Response Ok, got {decoded:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn frame_roundtrip_response_err() {
+        let original = Frame::Response {
+            id: 9,
+            payload: Err("boom".to_string()),
+        };
+        let mut buf: Vec<u8> = Vec::new();
+        write_frame(&mut buf, &original).await.unwrap();
+        let mut reader = buf.as_slice();
+        let decoded = read_frame(&mut reader).await.unwrap();
+        match decoded {
+            Frame::Response {
+                id,
+                payload: Err(msg),
+            } => {
+                assert_eq!(id, 9);
+                assert_eq!(msg, "boom");
+            }
+            _ => panic!("expected Response Err, got {decoded:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn frame_clean_eof_is_closed() {
+        let mut empty: &[u8] = &[];
+        let err = read_frame(&mut empty).await.unwrap_err();
+        assert!(matches!(err, FrameError::Closed));
+    }
+
+    #[tokio::test]
+    async fn frame_too_large_rejected() {
+        let mut buf: Vec<u8> = Vec::new();
+        let over_max = u32::try_from(MAX_FRAME_BYTES).expect("MAX_FRAME_BYTES fits u32") + 1;
+        buf.extend_from_slice(&over_max.to_le_bytes());
+        let mut reader = buf.as_slice();
+        let err = read_frame(&mut reader).await.unwrap_err();
+        assert!(matches!(err, FrameError::TooLarge(_)));
+    }
+
+    #[tokio::test]
+    async fn lenient_unknown_request_returns_id() {
+        let body = serde_json::json!({
+            "Request": {
+                "id": 99,
+                "req": { "TotallyNewCommand": "hello" }
+            }
+        })
+        .to_string();
+        let len = u32::try_from(body.len())
+            .expect("test body fits u32")
+            .to_le_bytes();
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&len);
+        buf.extend_from_slice(body.as_bytes());
+        let mut reader = buf.as_slice();
+        match read_frame_lenient(&mut reader).await.unwrap() {
+            FrameRead::UnknownRequest { id, .. } => assert_eq!(id, 99),
+            other => panic!("expected UnknownRequest, got {other:?}"),
+        }
+    }
+}

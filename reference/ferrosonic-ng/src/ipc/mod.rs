@@ -1,0 +1,14 @@
+//! IPC between TUI and ferrosonicd.
+
+pub mod client;
+pub mod frame;
+pub mod path;
+pub mod protocol;
+pub mod server;
+pub mod socket_client;
+
+pub use client::{DaemonClient, InProcessClient};
+pub use protocol::{
+    DaemonEvent, DaemonRequest, DaemonResponse, EnqueueMode, IpcError, PasswordStorage,
+};
+pub use socket_client::SocketClient;

@@ -1,0 +1,125 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ferro-ink: #061018;
+    --ferro-bg: #07131c;
+    --ferro-panel: rgba(10, 28, 40, 0.72);
+    --ferro-cyan: #3de0ff;
+    --ferro-yellow: #f5d76e;
+    --ferro-text: #e8f4f8;
+    --ferro-muted: #7f9aaa;
+    --ferro-warn: #ff8f6b;
+    --background: #07131c;
+    --foreground: #e8f4f8;
+    --card: #0a1c28;
+    --card-foreground: #e8f4f8;
+    --popover: #0a1c28;
+    --popover-foreground: #e8f4f8;
+    --primary: #3de0ff;
+    --primary-foreground: #061018;
+    --secondary: #123044;
+    --secondary-foreground: #e8f4f8;
+    --muted: #123044;
+    --muted-foreground: #7f9aaa;
+    --accent: #123044;
+    --accent-foreground: #f5d76e;
+    --destructive: #ff6b7a;
+    --border: rgba(61, 224, 255, 0.18);
+    --input: rgba(61, 224, 255, 0.18);
+    --ring: #3de0ff;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-instrument), "Segoe UI", sans-serif;
+    background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(61, 224, 255, 0.18), transparent 55%),
+      radial-gradient(900px 500px at 90% 0%, rgba(245, 215, 110, 0.1), transparent 50%),
+      linear-gradient(165deg, #040b12 0%, #07131c 45%, #0a1a24 100%);
+    min-height: 100vh;
+  }
+
+  .font-display {
+    font-family: var(--font-syne), var(--font-instrument), sans-serif;
+  }
+}
+
+@layer components {
+  .ferro-shell {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ferro-glow {
+    pointer-events: none;
+    position: absolute;
+    inset: -20% auto auto 35%;
+    width: 50vw;
+    height: 50vw;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(61, 224, 255, 0.14), transparent 65%);
+    filter: blur(8px);
+    animation: ferro-pulse 8s ease-in-out infinite;
+  }
+
+  .ferro-grid {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(61, 224, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61, 224, 255, 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+    opacity: 0.55;
+  }
+
+  .ferro-panel {
+    border: 1px solid rgba(61, 224, 255, 0.16);
+    background: var(--ferro-panel);
+    backdrop-filter: blur(14px);
+    border-radius: 1rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .animate-rise {
+    animation: ferro-rise 0.7s ease-out both;
+  }
+
+  .animate-rise-delay {
+    animation: ferro-rise 0.7s ease-out 0.12s both;
+  }
+}
+
+@keyframes ferro-pulse {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(-4%, 6%, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes ferro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
