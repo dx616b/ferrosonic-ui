@@ -1,0 +1,59 @@
+#!/bin/sh
+set -e
+
+REPO="dx616b/ferrosonic-ui"
+INSTALL_DIR="/usr/local/bin"
+
+echo "Ferrosonic UI installer"
+echo "======================="
+
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64)
+    ASSET_REGEX='ferrosonic-ui-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*-linux-x86_64'
+    ;;
+  *)
+    echo "No precompiled binary for $ARCH. Build from source:"
+    echo "  npm install && npm run build:exe"
+    exit 1
+    ;;
+esac
+
+echo "Querying latest release..."
+API_LATEST="https://api.github.com/repos/$REPO/releases/latest"
+if ! RELEASE_JSON=$(curl -fsSL "$API_LATEST"); then
+  echo "Failed to query latest release metadata from GitHub."
+  exit 1
+fi
+
+TUI_URL=$(printf '%s\n' "$RELEASE_JSON" \
+  | grep '"browser_download_url"' \
+  | sed -n "s#.*\"\(https://[^\"]*/$ASSET_REGEX\)\".*#\1#p" \
+  | head -n1)
+
+if [ -z "$TUI_URL" ]; then
+  echo "No release asset matching '$ASSET_REGEX' was found."
+  exit 1
+fi
+
+LATEST=$(printf '%s\n' "$TUI_URL" \
+  | sed -n 's#.*/ferrosonic-ui-\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)-linux-x86_64$#\1#p')
+
+echo "Downloading ferrosonic-ui $LATEST..."
+TMP=$(mktemp)
+if ! curl -fsSL "$TUI_URL" -o "$TMP"; then
+  echo "Failed to download from: $TUI_URL"
+  rm -f "$TMP"
+  exit 1
+fi
+if [ ! -s "$TMP" ]; then
+  echo "Download failed: binary is empty."
+  rm -f "$TMP"
+  exit 1
+fi
+chmod +x "$TMP"
+sudo mv "$TMP" "$INSTALL_DIR/ferrosonic-ui"
+
+echo ""
+echo "ferrosonic-ui $LATEST installed to $INSTALL_DIR/"
+echo "Run 'ferrosonic-ui' and open the printed URL."

@@ -4,14 +4,31 @@ Browser UI for managing a [ferrosonic-ng](https://github.com/dx616b/ferrosonic-n
 
 Ferrosonic itself is a Rust Subsonic TUI/daemon. This app talks to `ferrosonicd` over its Unix-socket IPC (`u32` LE length-prefixed JSON frames). When no daemon socket is available, it runs a full interactive **demo mode** so the UI stays usable.
 
-## Run locally
+## Install
+
+Ships as one executable, the same way Ferrosonic does. The machine that runs it does not need Node.js.
+
+```bash
+curl -sSf https://raw.githubusercontent.com/dx616b/ferrosonic-ui/main/install.sh | sh
+ferrosonic-ui
+```
+
+That listens on [http://127.0.0.1:4317](http://127.0.0.1:4317). Flags: `--port` and `--hostname` (or `FERROSONIC_UI_PORT` / `FERROSONIC_UI_HOST`).
+
+Build the binary yourself (needs Node.js and [Bun](https://bun.sh)):
+
+```bash
+npm install
+npm run build:exe
+./dist/ferrosonic-ui
+```
+
+### Develop
 
 ```bash
 npm install
 npm run dev -- --port 4317 --hostname 127.0.0.1
 ```
-
-Open [http://127.0.0.1:4317](http://127.0.0.1:4317).
 
 ### Live daemon
 

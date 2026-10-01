@@ -1,0 +1,43 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build ferrosonic-ui executable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build executable
+        run: ./scripts/build-executable.sh
+
+      - name: Stage versioned artifact
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp dist/ferrosonic-ui "ferrosonic-ui-${VERSION}-linux-x86_64"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Web control binary for ferrosonicd. Run \`ferrosonic-ui\` and open the printed URL." \
+            "ferrosonic-ui-${GITHUB_REF_NAME#v}-linux-x86_64"
