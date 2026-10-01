@@ -1,10 +1,10 @@
 import { getPlayerSnapshot, runPlayerCommand } from "./player-service";
-import type { PlayerCommand } from "./types";
+import type { PlayerCommand, PlayerView } from "./types";
 
 export async function handlePlayerHttp(
   method: string,
   rawBody?: string,
-): Promise<{ status: number; body: unknown }> {
+): Promise<{ status: number; body: PlayerView | { error: string } }> {
   if (method === "GET") {
     return { status: 200, body: await getPlayerSnapshot() };
   }

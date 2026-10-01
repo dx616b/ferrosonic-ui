@@ -5,7 +5,7 @@ import {
   sendDaemonCommand,
   socketExists,
 } from "./daemon-ipc";
-import type { PlayerCommand, PlayerSnapshot } from "./types";
+import type { PlayerCommand, PlayerView } from "./types";
 
 function preferDaemon(): boolean {
   if (process.env.FERROSONIC_FORCE_DEMO === "1") return false;
@@ -13,24 +13,26 @@ function preferDaemon(): boolean {
   return socketExists();
 }
 
-export async function getPlayerSnapshot(): Promise<PlayerSnapshot> {
+export async function getPlayerSnapshot(): Promise<PlayerView> {
   if (!preferDaemon()) {
-    return getDemoPlayer().snapshot();
+    return { snapshot: getDemoPlayer().snapshot() };
   }
   try {
-    return await fetchDaemonSnapshot();
+    return { snapshot: await fetchDaemonSnapshot() };
   } catch (err) {
     const demo = getDemoPlayer().snapshot();
     return {
-      ...demo,
-      mode: "disconnected",
-      socketPath: getConfiguredSocketPath(),
-      message: `Could not reach ferrosonicd (${(err as Error).message}). Showing demo state.`,
+      snapshot: {
+        ...demo,
+        mode: "disconnected",
+        socketPath: getConfiguredSocketPath(),
+        message: `Could not reach ferrosonicd (${(err as Error).message}). Showing demo state.`,
+      },
     };
   }
 }
 
-export async function runPlayerCommand(cmd: PlayerCommand): Promise<PlayerSnapshot> {
+export async function runPlayerCommand(cmd: PlayerCommand): Promise<PlayerView> {
   if (!preferDaemon()) {
     return getDemoPlayer().command(cmd);
   }
@@ -40,9 +42,12 @@ export async function runPlayerCommand(cmd: PlayerCommand): Promise<PlayerSnapsh
     const demo = getDemoPlayer().command(cmd);
     return {
       ...demo,
-      mode: "disconnected",
-      socketPath: getConfiguredSocketPath(),
-      message: `Daemon command failed (${(err as Error).message}). Applied to demo fallback.`,
+      snapshot: {
+        ...demo.snapshot,
+        mode: "disconnected",
+        socketPath: getConfiguredSocketPath(),
+        message: `Daemon command failed (${(err as Error).message}). Applied to demo fallback.`,
+      },
     };
   }
 }

@@ -27,6 +27,23 @@ FERROSONIC_EXPORT=1 npx next build
 restore_api
 trap - EXIT
 
-mkdir -p dist
-bun build --compile ./src/bin/ferrosonic-ui.ts --asset ./out --outfile dist/ferrosonic-ui
-echo "Built dist/ferrosonic-ui"
+mkdir -p player dist
+if [ -n "${FERROSONIC_PLAYER:-}" ]; then
+  cp "$FERROSONIC_PLAYER" player/ferrosonic
+else
+  SRC="${FERROSONIC_SRC:-../ferrosonic-ng}"
+  if [ ! -f "$SRC/Cargo.toml" ]; then
+    echo "Set FERROSONIC_PLAYER, or place the ferrosonic-ng checkout at $SRC"
+    exit 1
+  fi
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "cargo is required to build the bundled player"
+    exit 1
+  fi
+  (cd "$SRC" && cargo build --release --bin ferrosonic)
+  cp "$SRC/target/release/ferrosonic" player/ferrosonic
+fi
+chmod +x player/ferrosonic
+
+bun build --compile ./src/bin/ferrosonic-ui.ts --asset ./out --asset ./player --outfile dist/ferrosonic-ui
+echo "Built dist/ferrosonic-ui (UI + player)"

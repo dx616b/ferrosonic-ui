@@ -13,7 +13,7 @@ curl -sSf https://raw.githubusercontent.com/dx616b/ferrosonic-ui/main/install.sh
 ferrosonic-ui
 ```
 
-That listens on [http://127.0.0.1:4317](http://127.0.0.1:4317). Flags: `--port` and `--hostname` (or `FERROSONIC_UI_PORT` / `FERROSONIC_UI_HOST`).
+That listens on [http://127.0.0.1:4317](http://127.0.0.1:4317). The executable contains the page and the ferrosonic player. It starts the player when the daemon socket is not already open. `--no-daemon` skips that. Flags: `--port` and `--hostname` (or `FERROSONIC_UI_PORT` / `FERROSONIC_UI_HOST`). Audio still needs `mpv`, the same as Ferrosonic itself.
 
 Build the binary yourself (needs Node.js and [Bun](https://bun.sh)):
 
@@ -47,20 +47,7 @@ Force modes:
 
 ## What the UI controls
 
-| Control | Daemon request |
-|---|---|
-| Play / Pause | `TogglePause` |
-| Stop | `Stop` |
-| Next / Previous | `Next` / `Previous` |
-| Seek | `Seek` |
-| Volume | `SetVolume` |
-| Repeat cycle | `SetRepeatMode` |
-| Play queue row | `PlayQueueIndex` |
-| Remove from queue | `RemoveFromQueue` |
-| Shuffle queue | `ShuffleQueue` |
-| Clear played history | `ClearQueueHistory` |
-
-Status polling uses `Snapshot` against the daemon when connected.
+The same pages as the terminal: Library, Queue, Quick Play, Playlists, Server, and Settings. Transport stays pinned at the bottom. Library search, enqueue, stars, playlist edit, server credentials, and the terminal settings (theme, cava, cover art, repeat, scrobble, notifications, daemon) go through the daemon IPC. Cava and cover art still render in the terminal; the web page only changes those settings.
 
 ## Upstream reference
 

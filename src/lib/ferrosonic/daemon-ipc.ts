@@ -3,7 +3,21 @@ import net from "node:net";
 import { homedir } from "node:os";
 import path from "node:path";
 
-import type { PlayerCommand, PlayerSnapshot, RepeatMode, Track } from "./types";
+import type {
+  AlbumItem,
+  ArtistItem,
+  LibraryLists,
+  MusicFolderItem,
+  PlayerCommand,
+  PlayerData,
+  PlayerSettings,
+  PlayerSnapshot,
+  PlayerView,
+  PlaylistItem,
+  RepeatMode,
+  Track,
+} from "./types";
+import { EMPTY_LIBRARY, EMPTY_SETTINGS } from "./types";
 
 const MAX_FRAME_BYTES = 16 * 1024 * 1024;
 
@@ -52,20 +66,58 @@ function readFrames(buffer: Buffer): { frames: unknown[]; rest: Buffer } {
   return { frames, rest: buffer.subarray(offset) };
 }
 
+function rec(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function str(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function num(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function bool(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function childFromTrack(track: Track): Record<string, unknown> {
+  return {
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    duration: track.duration,
+    track: track.track,
+    bitRate: track.bitRate,
+    suffix: track.suffix,
+    samplingRate: track.samplingRate,
+    starred: track.starred ? "1" : undefined,
+    radio_stream_url: track.streamUrl,
+  };
+}
+
 function toDaemonRequest(cmd: PlayerCommand): unknown {
   switch (cmd.type) {
     case "TogglePause":
-      return "TogglePause";
     case "Pause":
-      return "Pause";
     case "Resume":
-      return "Resume";
     case "Stop":
-      return "Stop";
     case "Next":
-      return "Next";
     case "Previous":
-      return "Previous";
+    case "ClearQueue":
+    case "ShuffleQueue":
+    case "ShuffleLibrary":
+    case "ClearQueueHistory":
+    case "RefreshStarred":
+    case "RefreshRandom":
+    case "RefreshArtists":
+    case "RefreshPlaylists":
+      return cmd.type;
+    case "RefreshRadio":
+      return "RefreshRadioStations";
     case "Seek":
       return { Seek: cmd.seconds };
     case "SeekRelative":
@@ -76,83 +128,257 @@ function toDaemonRequest(cmd: PlayerCommand): unknown {
       return { PlayQueueIndex: cmd.index };
     case "RemoveFromQueue":
       return { RemoveFromQueue: cmd.index };
-    case "ClearQueue":
-      return "ClearQueue";
-    case "ShuffleQueue":
-      return "ShuffleQueue";
-    case "ClearQueueHistory":
-      return "ClearQueueHistory";
+    case "MoveQueueItem":
+      return { MoveQueueItem: { from: cmd.from, to: cmd.to } };
     case "SetRepeatMode":
       return { SetRepeatMode: cmd.mode };
     case "CycleRepeat":
-      // Resolved by caller after reading current mode.
       return { SetRepeatMode: "Off" };
+    case "Enqueue":
+      return {
+        EnqueueSongs: {
+          songs: cmd.songs.map(childFromTrack),
+          mode:
+            cmd.mode.kind === "append"
+              ? "Append"
+              : { Replace: { play_from: cmd.mode.playFrom } },
+        },
+      };
+    case "LoadArtist":
+      return { LoadArtist: cmd.id };
+    case "LoadAlbum":
+      return { LoadAlbum: cmd.id };
+    case "LoadPlaylist":
+      return { LoadPlaylist: cmd.id };
+    case "Search":
+      return {
+        Search: {
+          query: cmd.query,
+          artist_count: 100,
+          album_count: 100,
+          song_count: 200,
+        },
+      };
+    case "ToggleStar":
+      return { ToggleStarSong: cmd.id };
+    case "CreatePlaylist":
+      return { CreatePlaylist: { name: cmd.name, song_ids: cmd.songIds } };
+    case "RenamePlaylist":
+      return { RenamePlaylist: { id: cmd.id, name: cmd.name } };
+    case "DeletePlaylist":
+      return { DeletePlaylist: { id: cmd.id } };
+    case "RemovePlaylistSong":
+      return { RemovePlaylistSong: { playlist_id: cmd.playlistId, index: cmd.index } };
+    case "AddSongToPlaylist":
+      return { AddSongToPlaylist: { playlist_id: cmd.playlistId, song_id: cmd.songId } };
+    case "SetTheme":
+      return { SetTheme: cmd.name };
+    case "SetCava":
+      return { SetCavaEnabled: cmd.enabled };
+    case "SetCavaSize":
+      return { SetCavaSize: cmd.size };
+    case "SetCoverArt":
+      return { SetCoverArtEnabled: cmd.enabled };
+    case "SetCoverArtSize":
+      return { SetCoverArtSize: cmd.size };
+    case "SetAutoContinue":
+      return { SetAutoContinue: cmd.enabled };
+    case "SetScrobble":
+      return { SetScrobble: cmd.enabled };
+    case "SetNotifications":
+      return { SetNotifications: cmd.enabled };
+    case "SetDaemonEnabled":
+      return { SetDaemonEnabled: cmd.enabled };
+    case "SetMusicFolder":
+      return { SetMusicFolder: cmd.id };
+    case "UpdateServer":
+      return {
+        UpdateServerConfig: {
+          base_url: cmd.baseUrl,
+          username: cmd.username,
+          password: cmd.password,
+        },
+      };
+    case "TestServer":
+      return {
+        TestServerConnection: {
+          base_url: cmd.baseUrl,
+          username: cmd.username,
+          password: cmd.password,
+        },
+      };
     default:
-      return "Ping";
+      return cmd satisfies never;
   }
 }
 
-function mapChild(raw: Record<string, unknown>): Track {
+export function mapChild(raw: Record<string, unknown>): Track {
   return {
     id: String(raw.id ?? ""),
     title: String(raw.title ?? "Untitled"),
-    artist: raw.artist != null ? String(raw.artist) : undefined,
-    album: raw.album != null ? String(raw.album) : undefined,
-    duration: typeof raw.duration === "number" ? raw.duration : undefined,
-    track: typeof raw.track === "number" ? raw.track : undefined,
-    starred: raw.starred != null,
-    bitRate: typeof raw.bitRate === "number" ? raw.bitRate : undefined,
-    suffix: raw.suffix != null ? String(raw.suffix) : undefined,
-    samplingRate: typeof raw.samplingRate === "number" ? raw.samplingRate : undefined,
+    artist: str(raw.artist),
+    album: str(raw.album),
+    duration: num(raw.duration),
+    track: num(raw.track),
+    starred: raw.starred != null && raw.starred !== false,
+    bitRate: num(raw.bitRate),
+    suffix: str(raw.suffix),
+    samplingRate: num(raw.samplingRate),
+    streamUrl: str(raw.radio_stream_url),
   };
 }
 
-function snapshotFromDaemonState(
+function mapArtist(raw: Record<string, unknown>): ArtistItem {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? "Unknown artist"),
+    albumCount: num(raw.albumCount),
+  };
+}
+
+function mapAlbum(raw: Record<string, unknown>): AlbumItem {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? "Untitled"),
+    artist: str(raw.artist),
+    artistId: str(raw.artistId),
+    songCount: num(raw.songCount),
+    year: num(raw.year),
+    duration: num(raw.duration),
+  };
+}
+
+function mapPlaylist(raw: Record<string, unknown>): PlaylistItem {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? "Playlist"),
+    songCount: num(raw.songCount) ?? 0,
+    duration: num(raw.duration),
+    owner: str(raw.owner),
+  };
+}
+
+function mapFolder(raw: Record<string, unknown>): MusicFolderItem | null {
+  const id = num(raw.id);
+  if (id == null) return null;
+  return { id, name: String(raw.name ?? "Library") };
+}
+
+function mapList<T>(value: unknown, map: (raw: Record<string, unknown>) => T): T[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const row = rec(item);
+    return row ? [map(row)] : [];
+  });
+}
+
+function mapSettings(config: Record<string, unknown> | null): PlayerSettings {
+  if (!config) return { ...EMPTY_SETTINGS };
+  const password = config.Password;
+  const folder = config.MusicFolderId;
+  return {
+    baseUrl: typeof config.BaseURL === "string" ? config.BaseURL : "",
+    username: typeof config.Username === "string" ? config.Username : "",
+    passwordSet: typeof password === "string" && password.length > 0,
+    theme: typeof config.Theme === "string" && config.Theme ? config.Theme : "Default",
+    cava: bool(config.Cava, false),
+    cavaSize: num(config.CavaSize) ?? EMPTY_SETTINGS.cavaSize,
+    coverArt: bool(config.CoverArt, true),
+    coverArtSize: num(config.CoverArtSize) ?? EMPTY_SETTINGS.coverArtSize,
+    daemon: bool(config.Daemon, true),
+    autoContinue: bool(config.AutoContinue, false),
+    scrobble: bool(config.Scrobble, true),
+    notifications: bool(config.Notifications, true),
+    musicFolderId: typeof folder === "number" ? folder : null,
+  };
+}
+
+function mapLibrary(library: Record<string, unknown> | null): LibraryLists {
+  if (!library) return { ...EMPTY_LIBRARY, artists: [], playlists: [], starred: [], random: [], radio: [], folders: [] };
+  return {
+    artists: mapList(library.artists, mapArtist),
+    playlists: mapList(library.playlists, mapPlaylist),
+    starred: mapList(library.starred_songs, mapChild),
+    random: mapList(library.random_songs, mapChild),
+    radio: mapList(library.radio_stations, mapChild),
+    folders: mapList(library.music_folders, mapFolder).flatMap((folder) => (folder ? [folder] : [])),
+  };
+}
+
+export function snapshotFromDaemonState(
   state: Record<string, unknown>,
   socketPath: string,
 ): PlayerSnapshot {
-  const nowPlaying = (state.now_playing ?? {}) as Record<string, unknown>;
-  const songRaw = nowPlaying.song as Record<string, unknown> | null | undefined;
-  const queueRaw = Array.isArray(state.queue) ? state.queue : [];
-  const config = (state.config ?? {}) as Record<string, unknown>;
-  const volume = typeof config.Volume === "number" ? config.Volume : 100;
-
-  const queue = queueRaw.map((item) => mapChild(item as Record<string, unknown>));
-  const queuePosition =
-    typeof state.queue_position === "number" ? state.queue_position : null;
+  const nowPlaying = rec(state.now_playing) ?? {};
+  const songRaw = rec(nowPlaying.song);
+  const config = rec(state.config);
+  const settings = mapSettings(config);
+  const volume = num(config?.Volume) ?? 100;
 
   return {
     mode: "daemon",
     socketPath,
     volume,
-    repeatMode: (config.RepeatMode as RepeatMode) || "Off",
-    queue,
-    queuePosition,
-    serverLabel:
-      typeof config.BaseURL === "string" && config.BaseURL
-        ? config.BaseURL
-        : "ferrosonicd",
+    repeatMode: (str(config?.RepeatMode) as RepeatMode | undefined) || "Off",
+    queue: mapList(state.queue, mapChild),
+    queuePosition: num(state.queue_position) ?? null,
+    serverLabel: settings.baseUrl || "ferrosonicd",
     message: null,
+    settings,
+    library: mapLibrary(rec(state.library)),
     nowPlaying: {
       song: songRaw ? mapChild(songRaw) : null,
-      state: (nowPlaying.state as PlayerSnapshot["nowPlaying"]["state"]) || "Stopped",
-      position: typeof nowPlaying.position === "number" ? nowPlaying.position : 0,
-      duration: typeof nowPlaying.duration === "number" ? nowPlaying.duration : 0,
-      sampleRate: (nowPlaying.sample_rate as number | null) ?? null,
-      bitDepth: (nowPlaying.bit_depth as number | null) ?? null,
-      format: (nowPlaying.format as string | null) ?? null,
-      channels: (nowPlaying.channels as string | null) ?? null,
-      codec: (nowPlaying.codec as string | null) ?? null,
-      bitrateKbps: (nowPlaying.bitrate_kbps as number | null) ?? null,
+      state: (str(nowPlaying.state) as PlayerSnapshot["nowPlaying"]["state"]) || "Stopped",
+      position: num(nowPlaying.position) ?? 0,
+      duration: num(nowPlaying.duration) ?? 0,
+      sampleRate: num(nowPlaying.sample_rate) ?? null,
+      bitDepth: num(nowPlaying.bit_depth) ?? null,
+      format: str(nowPlaying.format) ?? null,
+      channels: str(nowPlaying.channels) ?? null,
+      codec: str(nowPlaying.codec) ?? null,
+      bitrateKbps: num(nowPlaying.bitrate_kbps) ?? null,
     },
   };
 }
 
-async function requestDaemon(
-  socketPath: string,
-  req: unknown,
-  timeoutMs = 4000,
-): Promise<unknown> {
+function dataFromPayload(payload: unknown): PlayerData | undefined {
+  const boxed = rec(payload);
+  if (!boxed) return undefined;
+  if (Array.isArray(boxed.ArtistAlbums)) {
+    return { albums: mapList(boxed.ArtistAlbums, mapAlbum) };
+  }
+  if (Array.isArray(boxed.AlbumSongs)) {
+    return { songs: mapList(boxed.AlbumSongs, mapChild) };
+  }
+  if (Array.isArray(boxed.PlaylistSongs)) {
+    return { songs: mapList(boxed.PlaylistSongs, mapChild) };
+  }
+  const search = rec(boxed.SearchResults);
+  if (search) {
+    return {
+      search: {
+        artists: mapList(search.artist, mapArtist),
+        albums: mapList(search.album, mapAlbum),
+        songs: mapList(search.song, mapChild),
+      },
+    };
+  }
+  const connection = rec(boxed.ConnectionTestResult);
+  if (connection) {
+    return {
+      connection: {
+        ok: connection.ok === true,
+        message: typeof connection.message === "string" ? connection.message : "",
+      },
+    };
+  }
+  if (typeof boxed.ServerConfigSaved === "string") {
+    return { notice: `Password stored in ${boxed.ServerConfigSaved}.` };
+  }
+  return undefined;
+}
+
+function requestDaemon(socketPath: string, req: unknown, timeoutMs = 8000): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath);
     let buffer: Buffer = Buffer.alloc(0);
@@ -174,25 +400,26 @@ async function requestDaemon(
       socket.write(encodeFrame({ Request: { id, req } }));
     });
 
-    socket.on("data", (chunk) => {
-      buffer = Buffer.concat([buffer, chunk as Buffer]);
+    socket.on("data", (chunk: Buffer) => {
+      buffer = Buffer.concat([buffer, chunk]);
       try {
         const { frames, rest } = readFrames(buffer);
         buffer = rest;
         for (const frame of frames) {
-          const f = frame as Record<string, unknown>;
-          if (f.Response) {
-            const response = f.Response as {
-              id: number;
-              payload: { Ok?: unknown; Err?: string };
-            };
-            if (response.payload?.Err) {
-              finish(new Error(response.payload.Err));
-              return;
-            }
-            finish(null, response.payload?.Ok);
+          const envelope = rec(frame);
+          const response = rec(envelope?.Response);
+          if (!response) continue;
+          const payload = rec(response.payload);
+          if (!payload) {
+            finish(new Error("Empty daemon response"));
             return;
           }
+          if (typeof payload.Err === "string") {
+            finish(new Error(payload.Err));
+            return;
+          }
+          finish(null, payload.Ok);
+          return;
         }
       } catch (err) {
         finish(err as Error);
@@ -210,18 +437,16 @@ export async function fetchDaemonSnapshot(
   socketPath = resolveSocketPath(),
 ): Promise<PlayerSnapshot> {
   const payload = await requestDaemon(socketPath, "Snapshot");
-  if (!payload || typeof payload !== "object") {
-    throw new Error("Unexpected Snapshot response");
-  }
-  const boxed = payload as { Snapshot?: Record<string, unknown> };
-  const state = boxed.Snapshot ?? (payload as Record<string, unknown>);
+  const boxed = rec(payload);
+  const state = rec(boxed?.Snapshot) ?? boxed;
+  if (!state) throw new Error("Unexpected Snapshot response");
   return snapshotFromDaemonState(state, socketPath);
 }
 
 export async function sendDaemonCommand(
   cmd: PlayerCommand,
   socketPath = resolveSocketPath(),
-): Promise<PlayerSnapshot> {
+): Promise<PlayerView> {
   let request = toDaemonRequest(cmd);
   if (cmd.type === "CycleRepeat") {
     const current = await fetchDaemonSnapshot(socketPath);
@@ -230,9 +455,10 @@ export async function sendDaemonCommand(
     const next = order[(idx + 1) % order.length]!;
     request = { SetRepeatMode: next };
   }
-  await requestDaemon(socketPath, request);
-  // Volume lives in the audio stack; Snapshot after short delay for consistency.
-  return fetchDaemonSnapshot(socketPath);
+  const payload = await requestDaemon(socketPath, request);
+  const data = dataFromPayload(payload);
+  const snapshot = await fetchDaemonSnapshot(socketPath);
+  return data ? { snapshot, data } : { snapshot };
 }
 
 export function defaultConfigDir(): string {

@@ -20,6 +20,8 @@
 # production
 /build
 /dist
+/player
+/ferrosonic-src
 
 # misc
 .DS_Store

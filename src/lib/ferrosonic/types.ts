@@ -4,6 +4,22 @@ export type PlaybackState = "Stopped" | "Playing" | "Paused";
 export type RepeatMode = "Off" | "One" | "All";
 export type ConnectionMode = "demo" | "daemon" | "disconnected";
 
+export const THEME_NAMES = [
+  "Default",
+  "Monokai",
+  "Dracula",
+  "Nord",
+  "Gruvbox",
+  "Catppuccin",
+  "Solarized",
+  "Tokyo Night",
+  "Rose Pine",
+  "Everforest",
+  "Kanagawa",
+  "One Dark",
+  "Ayu Dark",
+] as const;
+
 export interface Track {
   id: string;
   title: string;
@@ -15,6 +31,61 @@ export interface Track {
   bitRate?: number;
   suffix?: string;
   samplingRate?: number;
+  streamUrl?: string;
+}
+
+export interface ArtistItem {
+  id: string;
+  name: string;
+  albumCount?: number;
+}
+
+export interface AlbumItem {
+  id: string;
+  name: string;
+  artist?: string;
+  artistId?: string;
+  songCount?: number;
+  year?: number;
+  duration?: number;
+}
+
+export interface PlaylistItem {
+  id: string;
+  name: string;
+  songCount: number;
+  duration?: number;
+  owner?: string;
+}
+
+export interface MusicFolderItem {
+  id: number;
+  name: string;
+}
+
+export interface PlayerSettings {
+  baseUrl: string;
+  username: string;
+  passwordSet: boolean;
+  theme: string;
+  cava: boolean;
+  cavaSize: number;
+  coverArt: boolean;
+  coverArtSize: number;
+  daemon: boolean;
+  autoContinue: boolean;
+  scrobble: boolean;
+  notifications: boolean;
+  musicFolderId: number | null;
+}
+
+export interface LibraryLists {
+  artists: ArtistItem[];
+  playlists: PlaylistItem[];
+  starred: Track[];
+  random: Track[];
+  radio: Track[];
+  folders: MusicFolderItem[];
 }
 
 export interface NowPlaying {
@@ -40,7 +111,30 @@ export interface PlayerSnapshot {
   queuePosition: number | null;
   serverLabel?: string | null;
   message?: string | null;
+  settings: PlayerSettings;
+  library: LibraryLists;
 }
+
+export interface PlayerData {
+  albums?: AlbumItem[];
+  songs?: Track[];
+  search?: {
+    artists: ArtistItem[];
+    albums: AlbumItem[];
+    songs: Track[];
+  };
+  connection?: { ok: boolean; message: string };
+  notice?: string;
+}
+
+export interface PlayerView {
+  snapshot: PlayerSnapshot;
+  data?: PlayerData;
+}
+
+export type EnqueueMode =
+  | { kind: "replace"; playFrom: number | null }
+  | { kind: "append" };
 
 export type PlayerCommand =
   | { type: "TogglePause" }
@@ -56,6 +150,61 @@ export type PlayerCommand =
   | { type: "RemoveFromQueue"; index: number }
   | { type: "ClearQueue" }
   | { type: "ShuffleQueue" }
+  | { type: "ShuffleLibrary" }
   | { type: "ClearQueueHistory" }
+  | { type: "MoveQueueItem"; from: number; to: number }
   | { type: "SetRepeatMode"; mode: RepeatMode }
-  | { type: "CycleRepeat" };
+  | { type: "CycleRepeat" }
+  | { type: "Enqueue"; songs: Track[]; mode: EnqueueMode }
+  | { type: "LoadArtist"; id: string }
+  | { type: "LoadAlbum"; id: string }
+  | { type: "LoadPlaylist"; id: string }
+  | { type: "Search"; query: string }
+  | { type: "RefreshStarred" }
+  | { type: "RefreshRandom" }
+  | { type: "RefreshRadio" }
+  | { type: "RefreshArtists" }
+  | { type: "RefreshPlaylists" }
+  | { type: "ToggleStar"; id: string }
+  | { type: "CreatePlaylist"; name: string; songIds: string[] }
+  | { type: "RenamePlaylist"; id: string; name: string }
+  | { type: "DeletePlaylist"; id: string }
+  | { type: "RemovePlaylistSong"; playlistId: string; index: number }
+  | { type: "AddSongToPlaylist"; playlistId: string; songId: string }
+  | { type: "SetTheme"; name: string }
+  | { type: "SetCava"; enabled: boolean }
+  | { type: "SetCavaSize"; size: number }
+  | { type: "SetCoverArt"; enabled: boolean }
+  | { type: "SetCoverArtSize"; size: number }
+  | { type: "SetAutoContinue"; enabled: boolean }
+  | { type: "SetScrobble"; enabled: boolean }
+  | { type: "SetNotifications"; enabled: boolean }
+  | { type: "SetDaemonEnabled"; enabled: boolean }
+  | { type: "SetMusicFolder"; id: number | null }
+  | { type: "UpdateServer"; baseUrl: string; username: string; password: string }
+  | { type: "TestServer"; baseUrl: string; username: string; password: string };
+
+export const EMPTY_SETTINGS: PlayerSettings = {
+  baseUrl: "",
+  username: "",
+  passwordSet: false,
+  theme: "Default",
+  cava: false,
+  cavaSize: 20,
+  coverArt: true,
+  coverArtSize: 14,
+  daemon: true,
+  autoContinue: false,
+  scrobble: true,
+  notifications: true,
+  musicFolderId: null,
+};
+
+export const EMPTY_LIBRARY: LibraryLists = {
+  artists: [],
+  playlists: [],
+  starred: [],
+  random: [],
+  radio: [],
+  folders: [],
+};
