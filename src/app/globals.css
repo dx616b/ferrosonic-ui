@@ -55,7 +55,6 @@
 @layer components {
   .ferro-shell {
     position: relative;
-    overflow: hidden;
   }
 
   .ferro-glow {

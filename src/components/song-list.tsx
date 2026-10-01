@@ -32,7 +32,7 @@ export function SongList({
   }
 
   return (
-    <ul className="flex max-h-[32rem] flex-col gap-1 overflow-y-auto pr-1">
+    <ul className="flex flex-col gap-1">
       {songs.map((track, index) => {
         const current =
           currentIndex != null ? index === currentIndex : currentId != null && track.id === currentId;

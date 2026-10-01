@@ -41,7 +41,7 @@ export function PlaylistsPage({
             Refresh
           </Button>
         </div>
-        <ul className="flex max-h-[32rem] flex-col gap-1 overflow-y-auto">
+        <ul className="flex flex-col gap-1">
           {playlists.length === 0 ? <li className="text-sm text-[var(--ferro-muted)]">No playlists.</li> : null}
           {playlists.map((playlist) => (
             <li key={playlist.id}>

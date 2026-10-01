@@ -190,7 +190,7 @@ function NameList({
 }) {
   if (rows.length === 0) return <p className="text-sm text-[var(--ferro-muted)]">Nothing here.</p>;
   return (
-    <ul className="flex max-h-[32rem] flex-col gap-1 overflow-y-auto">
+    <ul className="flex flex-col gap-1">
       {rows.map((row) => (
         <li key={row.id}>
           <button

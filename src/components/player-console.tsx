@@ -109,7 +109,7 @@ export function PlayerConsole() {
     snapshot.mode === "daemon" ? "Connected" : snapshot.mode === "disconnected" ? "Daemon unreachable" : "Demo mode";
 
   return (
-    <div className="relative mx-auto flex h-dvh max-h-dvh w-full max-w-6xl flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 pb-10 pt-6 sm:px-6">
       <header className="relative z-10 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-display text-4xl leading-none tracking-[-0.04em] text-[var(--ferro-cyan)] sm:text-5xl">
@@ -154,7 +154,7 @@ export function PlayerConsole() {
         </p>
       )}
 
-      <section className="ferro-panel relative z-20 shrink-0 space-y-3 p-4">
+      <section className="ferro-panel sticky top-3 z-30 space-y-3 bg-[#07131c]/95 p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ferro-muted)]">Now playing</p>
@@ -221,7 +221,7 @@ export function PlayerConsole() {
         </div>
       </section>
 
-      <div className="relative z-10 min-h-0 flex-1 overflow-y-auto">
+      <div className="relative z-10">
         {page === "Library" ? <LibraryPage snapshot={snapshot} busy={pending} send={send} /> : null}
         {page === "Queue" ? <QueuePage snapshot={snapshot} busy={pending} send={send} /> : null}
         {page === "Quick Play" ? <QuickPlayPage snapshot={snapshot} busy={pending} send={send} /> : null}
