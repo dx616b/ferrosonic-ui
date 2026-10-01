@@ -53,7 +53,10 @@ if [ ! -s "$TMP" ]; then
 fi
 chmod +x "$TMP"
 sudo mv "$TMP" "$INSTALL_DIR/ferrosonic-ui"
+sudo ln -sfn ferrosonic-ui "$INSTALL_DIR/ferrosonic"
 
 echo ""
 echo "ferrosonic-ui $LATEST installed to $INSTALL_DIR/"
-echo "Run 'ferrosonic-ui' and open the printed URL."
+echo "  ferrosonic              terminal UI"
+echo "  ferrosonic --daemon     player and web UI"
+echo "  ferrosonic-ui           web UI in the foreground"

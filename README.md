@@ -13,7 +13,25 @@ curl -sSf https://raw.githubusercontent.com/dx616b/ferrosonic-ui/main/install.sh
 ferrosonic-ui
 ```
 
-That listens on [http://127.0.0.1:4317](http://127.0.0.1:4317). The executable contains the page and the ferrosonic player. It starts the player when the daemon socket is not already open. `--no-daemon` skips that. Flags: `--port` and `--hostname` (or `FERROSONIC_UI_PORT` / `FERROSONIC_UI_HOST`). Audio still needs `mpv`, the same as Ferrosonic itself.
+The install provides both commands from one binary:
+
+```bash
+ferrosonic                  # terminal UI
+ferrosonic --daemon         # player daemon and web UI on http://127.0.0.1:4317
+ferrosonic --daemon --no-ui # player daemon only
+ferrosonic -c FILE -v       # same terminal flags as Ferrosonic
+ferrosonic-ui               # web UI in the foreground
+```
+
+`--hostname` and `--port` choose where the page listens (`FERROSONIC_UI_HOST`, `FERROSONIC_UI_PORT`). Audio still needs `mpv`.
+
+A user service that keeps the terminal closed and serves the page with the player:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp contrib/ferrosonic-ui.service ~/.config/systemd/user/
+systemctl --user enable --now ferrosonic-ui.service
+```
 
 Build the binary yourself (needs Node.js and [Bun](https://bun.sh)):
 

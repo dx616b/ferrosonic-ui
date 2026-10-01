@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import http from "node:http";
@@ -27,20 +27,20 @@ const MIME: Record<string, string> = {
 };
 
 function usage(): string {
-  return `ferrosonic-ui — web control for ferrosonicd
+  return `ferrosonic — terminal player and web UI
 
-Usage:
-  ferrosonic-ui [--port PORT] [--hostname ADDR] [--no-daemon]
+  ferrosonic                         terminal UI
+  ferrosonic --daemon                player daemon and web UI
+  ferrosonic --daemon --no-ui        player daemon only
+  ferrosonic --hostname ADDR --port N
+  ferrosonic -c FILE -v --standalone
 
-Defaults: --hostname ${DEFAULT_HOSTNAME} --port ${DEFAULT_PORT}
+  ferrosonic-ui                      web UI in the foreground, with the player
+  ferrosonic-ui --no-daemon          web UI only
 
-Starts the bundled ferrosonic player when its socket is not already open.
-FERROSONIC_BIN overrides the bundled player. mpv is still required for audio.
-
-Environment:
-  FERROSONIC_SOCK           daemon socket path
-  FERROSONIC_FORCE_DEMO=1   always use the in-process demo player
-  FERROSONIC_FORCE_DAEMON=1 always use the Unix socket
+Defaults: web UI on ${DEFAULT_HOSTNAME}:${DEFAULT_PORT}
+The terminal flags (-c, -v, --standalone) are the ferrosonic CLI.
+mpv is required for audio.
 `;
 }
 
@@ -54,19 +54,41 @@ function readArg(argv: string[], flag: string, index: number): string {
   return value;
 }
 
-function parseArgs(argv: string[]): { port: number; hostname: string; spawnDaemon: boolean } {
+interface Launch {
+  port: number;
+  hostname: string;
+  help: boolean;
+  daemon: boolean;
+  serveUi: boolean;
+  spawnPlayer: boolean;
+  playerArgs: string[];
+}
+
+function parseArgs(argv: string[]): Launch {
   let port = Number(process.env.FERROSONIC_UI_PORT ?? DEFAULT_PORT);
   let hostname = process.env.FERROSONIC_UI_HOST ?? DEFAULT_HOSTNAME;
-  let spawnDaemon = true;
+  let help = false;
+  let daemon = false;
+  let serveUi = true;
+  let spawnPlayer = true;
+  const playerArgs: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--help" || arg === "-h") {
-      console.log(usage());
-      process.exit(0);
+      help = true;
+      continue;
+    }
+    if (arg === "--daemon") {
+      daemon = true;
+      continue;
+    }
+    if (arg === "--no-ui") {
+      serveUi = false;
+      continue;
     }
     if (arg === "--no-daemon") {
-      spawnDaemon = false;
+      spawnPlayer = false;
       continue;
     }
     if (arg === "--port") {
@@ -79,16 +101,23 @@ function parseArgs(argv: string[]): { port: number; hostname: string; spawnDaemo
       i += 1;
       continue;
     }
-    console.error(`Unknown argument: ${arg}`);
-    console.error(usage());
-    process.exit(1);
+    if (arg === "-c" || arg === "--config") {
+      playerArgs.push(arg, readArg(argv, arg, i));
+      i += 1;
+      continue;
+    }
+    playerArgs.push(arg);
   }
 
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     console.error(`Invalid port: ${port}`);
     process.exit(1);
   }
-  return { port, hostname, spawnDaemon };
+  return { port, hostname, help, daemon, serveUi, spawnPlayer, playerArgs };
+}
+
+function invokedAsCli(): boolean {
+  return path.basename(process.argv[0] ?? "") === "ferrosonic";
 }
 
 function findOnPath(): string | null {
@@ -121,27 +150,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function ensureDaemon(enabled: boolean): Promise<void> {
-  if (!enabled || process.env.FERROSONIC_FORCE_DEMO === "1") return;
+function launcherPath(): string {
+  return process.execPath;
+}
+
+async function runTui(bin: string, args: string[]): Promise<never> {
+  const env = { ...process.env, FERROSONIC_LAUNCHER: launcherPath() };
+  const child = spawn(bin, args, { stdio: "inherit", env });
+  const code = await new Promise<number>((resolve) => {
+    child.on("exit", (status) => resolve(status ?? 1));
+    child.on("error", () => resolve(1));
+  });
+  process.exit(code);
+}
+
+async function startOwnedPlayer(bin: string, playerArgs: string[]): Promise<ChildProcess | null> {
   if (socketExists()) {
     console.log("ferrosonic daemon already running");
-    return;
+    return null;
   }
-  const bin = await resolvePlayer();
-  if (!bin) {
-    console.log("no ferrosonic player in this build; the page stays in demo mode");
-    return;
-  }
-  const child = spawn(bin, ["--daemon"], { detached: true, stdio: "ignore" });
-  child.unref();
+  const env = { ...process.env };
+  delete env.FERROSONIC_LAUNCHER;
+  const child = spawn(bin, ["--daemon", ...playerArgs], { stdio: "ignore", env });
   for (let i = 0; i < 50; i += 1) {
     if (socketExists()) {
-      console.log(`started ${bin} --daemon`);
-      return;
+      console.log(`player ${bin} --daemon`);
+      return child;
     }
+    if (child.exitCode != null) break;
     await sleep(100);
   }
   console.log("ferrosonic daemon did not open its socket; the page stays in demo mode");
+  return child;
 }
 
 function moduleDir(): string {
@@ -198,11 +238,60 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
-const { port, hostname, spawnDaemon } = parseArgs(process.argv.slice(2));
-const root = uiRoot();
-await ensureDaemon(spawnDaemon);
+const launch = parseArgs(process.argv.slice(2));
+if (launch.help) {
+  console.log(usage());
+  process.exit(0);
+}
 
-const server = http.createServer(async (req, res) => {
+const cli = invokedAsCli();
+const tui = cli && !launch.daemon && launch.serveUi && launch.spawnPlayer && !process.argv.includes("--port") && !process.argv.includes("--hostname");
+
+if (tui) {
+  const bin = await resolvePlayer();
+  if (!bin) {
+    console.error("ferrosonic player is not bundled and not on PATH");
+    process.exit(1);
+  }
+  await runTui(bin, launch.playerArgs);
+}
+
+if (!launch.serveUi) {
+  const bin = await resolvePlayer();
+  if (!bin) {
+    console.error("ferrosonic player is not bundled and not on PATH");
+    process.exit(1);
+  }
+  const env = { ...process.env };
+  delete env.FERROSONIC_LAUNCHER;
+  const child = spawn(bin, ["--daemon", ...launch.playerArgs], { stdio: "inherit", env });
+  child.on("exit", (status) => process.exit(status ?? 1));
+} else {
+  const root = uiRoot();
+  let owned: ChildProcess | null = null;
+  if (launch.spawnPlayer && process.env.FERROSONIC_FORCE_DEMO !== "1") {
+    const bin = await resolvePlayer();
+    if (!bin) {
+      console.log("no ferrosonic player in this build; the page stays in demo mode");
+    } else {
+      owned = await startOwnedPlayer(bin, launch.playerArgs);
+    }
+  }
+
+  const stopOwned = () => {
+    if (owned && owned.exitCode == null) owned.kill("SIGTERM");
+  };
+  process.on("SIGINT", () => {
+    stopOwned();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    stopOwned();
+    process.exit(0);
+  });
+
+  const { port, hostname } = launch;
+  const server = http.createServer(async (req, res) => {
   const method = req.method ?? "GET";
   const urlPath = req.url ?? "/";
   const pathname = urlPath.split("?")[0] ?? "/";
@@ -249,7 +338,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, hostname, () => {
-  console.log(`ferrosonic-ui http://${hostname}:${port}`);
-  console.log(`daemon socket ${getConfiguredSocketPath()}`);
-});
+  server.listen(port, hostname, () => {
+    const role = launch.daemon ? "daemon" : "web";
+    console.log(`ferrosonic ${role} http://${hostname}:${port}`);
+    console.log(`daemon socket ${getConfiguredSocketPath()}`);
+  });
+}
