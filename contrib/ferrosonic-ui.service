@@ -4,7 +4,7 @@ After=default.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/ferrosonic --daemon --hostname 127.0.0.1 --port 4317
+ExecStart=/usr/local/bin/ferrosonic --daemon --port 4317
 Restart=on-failure
 RestartSec=2
 KillSignal=SIGTERM

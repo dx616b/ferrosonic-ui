@@ -17,7 +17,7 @@ The install provides both commands from one binary:
 
 ```bash
 ferrosonic                  # terminal UI
-ferrosonic --daemon         # player daemon and web UI on http://127.0.0.1:4317
+ferrosonic --daemon         # player daemon and web UI on port 4317, all interfaces
 ferrosonic --daemon --no-ui # player daemon only
 ferrosonic -c FILE -v       # same terminal flags as Ferrosonic
 ferrosonic-ui               # web UI in the foreground

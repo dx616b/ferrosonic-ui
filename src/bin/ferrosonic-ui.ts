@@ -10,7 +10,7 @@ import { getConfiguredSocketPath, socketExists } from "../lib/ferrosonic/daemon-
 import { handlePlayerHttp } from "../lib/ferrosonic/player-http";
 
 const DEFAULT_PORT = 4317;
-const DEFAULT_HOSTNAME = "127.0.0.1";
+const DEFAULT_HOSTNAME = "0.0.0.0";
 
 const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
