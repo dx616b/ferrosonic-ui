@@ -10,6 +10,8 @@ export function SongList({
   songs,
   empty,
   currentId,
+  currentIndex,
+  albumNumbers,
   onPlay,
   onAppend,
   onStar,
@@ -18,6 +20,8 @@ export function SongList({
   songs: Track[];
   empty: string;
   currentId?: string | null;
+  currentIndex?: number | null;
+  albumNumbers?: boolean;
   onPlay: (index: number) => void;
   onAppend?: (track: Track) => void;
   onStar?: (track: Track) => void;
@@ -30,7 +34,9 @@ export function SongList({
   return (
     <ul className="flex max-h-[32rem] flex-col gap-1 overflow-y-auto pr-1">
       {songs.map((track, index) => {
-        const current = currentId != null && track.id === currentId;
+        const current =
+          currentIndex != null ? index === currentIndex : currentId != null && track.id === currentId;
+        const number = albumNumbers && track.track != null ? track.track : index + 1;
         return (
           <li key={`${track.id}-${index}`}>
             <div
@@ -40,8 +46,8 @@ export function SongList({
               )}
             >
               <button type="button" onClick={() => onPlay(index)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
-                <span className="w-5 shrink-0 pt-0.5 font-mono text-[10px] text-[var(--ferro-muted)]">
-                  {current ? "▶" : track.track ?? index + 1}
+                <span className="w-8 shrink-0 pt-0.5 text-right font-mono text-[10px] tabular-nums text-[var(--ferro-muted)]">
+                  {current ? "▶" : number}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">

@@ -38,7 +38,7 @@ export function QueuePage({
       <SongList
         songs={snapshot.queue}
         empty="Queue is empty. Add songs from Library, Quick Play, or Playlists."
-        currentId={current == null ? null : snapshot.queue[current]?.id}
+        currentIndex={current}
         onPlay={(index) => void send({ type: "PlayQueueIndex", index })}
         onRemove={(index) => void send({ type: "RemoveFromQueue", index })}
       />

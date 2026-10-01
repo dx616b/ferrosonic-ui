@@ -157,6 +157,7 @@ export function LibraryPage({
             <SongList
               songs={songs}
               empty="Open an album to see its tracks."
+              albumNumbers
               currentId={snapshot.nowPlaying.song?.id}
               onPlay={(index) => playSongs(songs, index)}
               onAppend={(track) => void send({ type: "Enqueue", songs: [track], mode: { kind: "append" } })}
