@@ -106,7 +106,6 @@ class DemoPlayer {
     baseUrl: "https://demo.subsonic.local",
     username: "demo",
     passwordSet: true,
-    theme: "Default",
   };
   private playlists: { item: PlaylistItem; songIds: string[] }[] = [
     { item: { id: "pl-nights", name: "Night Drive", songCount: 2, owner: "demo" }, songIds: ["demo-1", "demo-2"] },
@@ -453,32 +452,11 @@ class DemoPlayer {
         if (playlist && !playlist.songIds.includes(cmd.songId)) playlist.songIds.push(cmd.songId);
         return;
       }
-      case "SetTheme":
-        this.settings.theme = cmd.name;
-        return;
-      case "SetCava":
-        this.settings.cava = cmd.enabled;
-        return;
-      case "SetCavaSize":
-        this.settings.cavaSize = cmd.size;
-        return;
-      case "SetCoverArt":
-        this.settings.coverArt = cmd.enabled;
-        return;
-      case "SetCoverArtSize":
-        this.settings.coverArtSize = cmd.size;
-        return;
       case "SetAutoContinue":
         this.settings.autoContinue = cmd.enabled;
         return;
       case "SetScrobble":
         this.settings.scrobble = cmd.enabled;
-        return;
-      case "SetNotifications":
-        this.settings.notifications = cmd.enabled;
-        return;
-      case "SetDaemonEnabled":
-        this.settings.daemon = cmd.enabled;
         return;
       case "SetMusicFolder":
         this.settings.musicFolderId = cmd.id;

@@ -76,7 +76,7 @@ export function QueuePage({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Save queue as playlist"
-          className="h-9 min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-[var(--ferro-cyan)]"
+          className="h-11 min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-3 text-base outline-none focus:border-[var(--ferro-cyan)]"
         />
         <Button type="submit" variant="outline" size="sm" disabled={busy || snapshot.queue.length === 0 || name.trim().length === 0}>
           Save

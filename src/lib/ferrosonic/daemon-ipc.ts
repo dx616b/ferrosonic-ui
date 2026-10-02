@@ -1,6 +1,5 @@
 import { accessSync, constants } from "node:fs";
 import net from "node:net";
-import { homedir } from "node:os";
 import path from "node:path";
 
 import type {
@@ -171,24 +170,10 @@ function toDaemonRequest(cmd: PlayerCommand): unknown {
       return { RemovePlaylistSong: { playlist_id: cmd.playlistId, index: cmd.index } };
     case "AddSongToPlaylist":
       return { AddSongToPlaylist: { playlist_id: cmd.playlistId, song_id: cmd.songId } };
-    case "SetTheme":
-      return { SetTheme: cmd.name };
-    case "SetCava":
-      return { SetCavaEnabled: cmd.enabled };
-    case "SetCavaSize":
-      return { SetCavaSize: cmd.size };
-    case "SetCoverArt":
-      return { SetCoverArtEnabled: cmd.enabled };
-    case "SetCoverArtSize":
-      return { SetCoverArtSize: cmd.size };
     case "SetAutoContinue":
       return { SetAutoContinue: cmd.enabled };
     case "SetScrobble":
       return { SetScrobble: cmd.enabled };
-    case "SetNotifications":
-      return { SetNotifications: cmd.enabled };
-    case "SetDaemonEnabled":
-      return { SetDaemonEnabled: cmd.enabled };
     case "SetMusicFolder":
       return { SetMusicFolder: cmd.id };
     case "UpdateServer":
@@ -280,15 +265,8 @@ function mapSettings(config: Record<string, unknown> | null): PlayerSettings {
     baseUrl: typeof config.BaseURL === "string" ? config.BaseURL : "",
     username: typeof config.Username === "string" ? config.Username : "",
     passwordSet: typeof password === "string" && password.length > 0,
-    theme: typeof config.Theme === "string" && config.Theme ? config.Theme : "Default",
-    cava: bool(config.Cava, false),
-    cavaSize: num(config.CavaSize) ?? EMPTY_SETTINGS.cavaSize,
-    coverArt: bool(config.CoverArt, true),
-    coverArtSize: num(config.CoverArtSize) ?? EMPTY_SETTINGS.coverArtSize,
-    daemon: bool(config.Daemon, true),
     autoContinue: bool(config.AutoContinue, false),
     scrobble: bool(config.Scrobble, true),
-    notifications: bool(config.Notifications, true),
     musicFolderId: typeof folder === "number" ? folder : null,
   };
 }
@@ -459,8 +437,4 @@ export async function sendDaemonCommand(
   const data = dataFromPayload(payload);
   const snapshot = await fetchDaemonSnapshot(socketPath);
   return data ? { snapshot, data } : { snapshot };
-}
-
-export function defaultConfigDir(): string {
-  return path.join(homedir(), ".config", "ferrosonic");
 }

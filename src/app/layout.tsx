@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Syne } from "next/font/google";
 
 import "./globals.css";
@@ -12,6 +12,13 @@ const syne = Syne({
   subsets: ["latin"],
   variable: "--font-syne",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#07131c",
+};
 
 export const metadata: Metadata = {
   title: "Ferrosonic — Player Control",

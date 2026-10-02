@@ -4,22 +4,6 @@ export type PlaybackState = "Stopped" | "Playing" | "Paused";
 export type RepeatMode = "Off" | "One" | "All";
 export type ConnectionMode = "demo" | "daemon" | "disconnected";
 
-export const THEME_NAMES = [
-  "Default",
-  "Monokai",
-  "Dracula",
-  "Nord",
-  "Gruvbox",
-  "Catppuccin",
-  "Solarized",
-  "Tokyo Night",
-  "Rose Pine",
-  "Everforest",
-  "Kanagawa",
-  "One Dark",
-  "Ayu Dark",
-] as const;
-
 export interface Track {
   id: string;
   title: string;
@@ -67,15 +51,8 @@ export interface PlayerSettings {
   baseUrl: string;
   username: string;
   passwordSet: boolean;
-  theme: string;
-  cava: boolean;
-  cavaSize: number;
-  coverArt: boolean;
-  coverArtSize: number;
-  daemon: boolean;
   autoContinue: boolean;
   scrobble: boolean;
-  notifications: boolean;
   musicFolderId: number | null;
 }
 
@@ -171,15 +148,8 @@ export type PlayerCommand =
   | { type: "DeletePlaylist"; id: string }
   | { type: "RemovePlaylistSong"; playlistId: string; index: number }
   | { type: "AddSongToPlaylist"; playlistId: string; songId: string }
-  | { type: "SetTheme"; name: string }
-  | { type: "SetCava"; enabled: boolean }
-  | { type: "SetCavaSize"; size: number }
-  | { type: "SetCoverArt"; enabled: boolean }
-  | { type: "SetCoverArtSize"; size: number }
   | { type: "SetAutoContinue"; enabled: boolean }
   | { type: "SetScrobble"; enabled: boolean }
-  | { type: "SetNotifications"; enabled: boolean }
-  | { type: "SetDaemonEnabled"; enabled: boolean }
   | { type: "SetMusicFolder"; id: number | null }
   | { type: "UpdateServer"; baseUrl: string; username: string; password: string }
   | { type: "TestServer"; baseUrl: string; username: string; password: string };
@@ -188,15 +158,8 @@ export const EMPTY_SETTINGS: PlayerSettings = {
   baseUrl: "",
   username: "",
   passwordSet: false,
-  theme: "Default",
-  cava: false,
-  cavaSize: 20,
-  coverArt: true,
-  coverArtSize: 14,
-  daemon: true,
   autoContinue: false,
   scrobble: true,
-  notifications: true,
   musicFolderId: null,
 };
 

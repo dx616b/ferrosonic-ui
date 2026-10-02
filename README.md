@@ -65,7 +65,7 @@ Force modes:
 
 ## What the UI controls
 
-The same pages as the terminal: Library, Queue, Quick Play, Playlists, Server, and Settings. Transport stays pinned at the bottom. Library search, enqueue, stars, playlist edit, server credentials, and the terminal settings (theme, cava, cover art, repeat, scrobble, notifications, daemon) go through the daemon IPC. Cava and cover art still render in the terminal; the web page only changes those settings.
+Library, Queue, Quick Play, Playlists, Server, and Settings. The player bar stays pinned while the page scrolls. Library search, enqueue, stars, playlist edit, server credentials, repeat, auto-continue, and scrobble go through the daemon IPC. Theme, cava, cover art, and desktop notifications stay on the terminal.
 
 ## Upstream reference
 
@@ -77,4 +77,4 @@ git clone https://github.com/dx616b/ferrosonic-ng.git
 
 ## Stack
 
-Next.js, TypeScript, Tailwind CSS, shadcn/ui. Design language follows Ferrosonic’s default cyan/yellow-on-dark terminal look.
+Next.js, TypeScript, and Tailwind CSS. The look follows Ferrosonic’s cyan/yellow-on-dark terminal.

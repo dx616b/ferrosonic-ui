@@ -45,6 +45,7 @@
       radial-gradient(900px 500px at 90% 0%, rgba(245, 215, 110, 0.1), transparent 50%),
       linear-gradient(165deg, #040b12 0%, #07131c 45%, #0a1a24 100%);
     min-height: 100vh;
+    overflow-x: clip;
   }
 
   .font-display {

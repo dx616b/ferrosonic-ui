@@ -30,16 +30,16 @@ export function QuickPlayPage({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
-      <section className="ferro-panel p-3">
-        <h2 className="mb-2 px-2 font-display text-lg">Song Options</h2>
-        <ul className="flex flex-col gap-1">
+      <section className="ferro-panel flex gap-1 p-2 lg:flex-col lg:p-3">
+        <h2 className="mb-2 hidden px-2 font-display text-lg lg:block">Song Options</h2>
+        <ul className="flex w-full gap-1 lg:flex-col">
           {OPTIONS.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="flex-1">
               <button
                 type="button"
                 onClick={() => setOption(item.id)}
                 className={cn(
-                  "w-full rounded-md px-3 py-2 text-left text-sm hover:bg-white/5",
+                  "w-full rounded-md px-3 py-3 text-center text-sm hover:bg-white/5 lg:py-2 lg:text-left",
                   option === item.id && "bg-[var(--ferro-cyan)]/15 text-[var(--ferro-cyan)]",
                 )}
               >

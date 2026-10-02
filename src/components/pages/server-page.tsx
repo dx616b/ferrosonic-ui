@@ -74,7 +74,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-[var(--ferro-cyan)]"
+        className="h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-base outline-none focus:border-[var(--ferro-cyan)]"
       />
     </label>
   );
