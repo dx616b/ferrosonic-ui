@@ -131,21 +131,82 @@ export function PlayerConsole() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [lockReady, setLockReady] = useState(false);
   const mediaBlockedUntil = useRef(0);
+  const positionAnchor = useRef({ songId: "", position: 0, at: 0, duration: 0, playing: false });
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.src = lockScreenSilenceUrl();
-    audio.loop = true;
+    audio.loop = false;
+    const replay = () => {
+      mediaBlockedUntil.current = Date.now() + 1500;
+      audio.currentTime = 0;
+      void audio.play();
+    };
+    audio.addEventListener("ended", replay);
+    return () => audio.removeEventListener("ended", replay);
   }, []);
 
   const armLockScreen = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || lockReady) return;
     mediaBlockedUntil.current = Date.now() + 1500;
-    audio.loop = true;
+    audio.loop = false;
     void audio.play().then(() => setLockReady(true)).catch(() => setLockReady(false));
   }, [lockReady]);
+
+  const songId = np.song?.id ?? "";
+
+  useEffect(() => {
+    if (!(np.duration > 0) || !Number.isFinite(np.position)) return;
+    const anchor = positionAnchor.current;
+    const now = Date.now();
+    const elapsed = anchor.playing && anchor.songId === songId ? (now - anchor.at) / 1000 : 0;
+    const predicted = anchor.songId === songId ? anchor.position + elapsed : np.position;
+    const sameSong = anchor.songId === songId;
+    const zeroGlitch = sameSong && np.position < 0.5 && predicted > 2;
+    const smallDrift = sameSong && Math.abs(predicted - np.position) < 2;
+    if (zeroGlitch || smallDrift) {
+      if (playing === anchor.playing && anchor.duration === np.duration) return;
+      const frozen = Math.min(Math.max(0, predicted), np.duration);
+      positionAnchor.current = {
+        songId,
+        position: playing ? anchor.position : frozen,
+        at: playing && !anchor.playing ? now : anchor.at,
+        duration: np.duration,
+        playing,
+      };
+      return;
+    }
+    positionAnchor.current = { songId, position: np.position, at: now, duration: np.duration, playing };
+  }, [np.position, np.duration, songId, playing]);
+
+  useEffect(() => {
+    if (!lockReady || typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const session = navigator.mediaSession;
+    const publish = () => {
+      const anchor = positionAnchor.current;
+      if (anchor.duration <= 0) return;
+      const elapsed = anchor.playing ? (Date.now() - anchor.at) / 1000 : 0;
+      const position = Math.min(Math.max(0, anchor.position + elapsed), anchor.duration);
+      try {
+        session.setPositionState({
+          duration: anchor.duration,
+          playbackRate: anchor.playing ? 1 : 0,
+          position,
+        });
+      } catch {
+        // The browser rejects a position the clock has not caught up with yet.
+      }
+      const audio = audioRef.current;
+      if (audio && anchor.playing && Math.abs(audio.currentTime - position) > 2 && position < audio.duration) {
+        audio.currentTime = position;
+      }
+    };
+    publish();
+    const id = setInterval(publish, 1000);
+    return () => clearInterval(id);
+  }, [lockReady, playing, songId, np.duration]);
 
   useEffect(() => {
     if (!lockReady || typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
@@ -157,14 +218,11 @@ export function PlayerConsole() {
       album: song?.album ?? "",
     });
     session.playbackState = playing ? "playing" : "paused";
-    if (np.duration > 0 && Number.isFinite(shownPosition)) {
-      const position = Math.min(Math.max(0, shownPosition), np.duration);
-      try {
-        session.setPositionState({ duration: np.duration, playbackRate: playing ? 1 : 0, position });
-      } catch {
-        // The browser rejects a position the clock has not caught up with yet.
-      }
-    }
+  }, [lockReady, np.song, playing]);
+
+  useEffect(() => {
+    if (!lockReady || typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const session = navigator.mediaSession;
     const allowed = () => Date.now() >= mediaBlockedUntil.current;
     const bind = (action: MediaSessionAction, run: MediaSessionActionHandler | null) => {
       try {
@@ -199,10 +257,13 @@ export function PlayerConsole() {
       bind("seekto", null);
       bind("stop", null);
     };
-  }, [lockReady, np.song, np.duration, playing, shownPosition, send]);
+  }, [lockReady, playing, send]);
 
   return (
-    <div className="relative flex min-h-dvh w-full flex-col gap-4 px-[clamp(0.75rem,2.5vw,2rem)] pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div
+      className="relative flex min-h-dvh w-full flex-col gap-4 px-[clamp(0.75rem,2.5vw,2rem)] pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
+      onPointerDown={() => armLockScreen()}
+    >
       <header className="relative z-10 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="font-display text-[clamp(1.75rem,4.5vw,3rem)] leading-none tracking-[-0.04em] text-[var(--ferro-cyan)]">
@@ -247,7 +308,7 @@ export function PlayerConsole() {
         </p>
       )}
 
-      <audio ref={audioRef} className="pointer-events-none absolute h-0 w-0" preload="auto" playsInline loop />
+      <audio ref={audioRef} className="pointer-events-none absolute h-0 w-0" preload="auto" playsInline />
       <section className="ferro-panel sticky top-[env(safe-area-inset-top,0px)] z-30 space-y-2 bg-[#07131c]/95 p-3 [@media(max-height:700px)]:space-y-1 [@media(max-height:700px)]:p-2 [@media(min-width:640px)]:top-3 [@media(min-width:640px)]:space-y-3 [@media(min-width:640px)]:p-4">
         <div className="flex flex-col gap-3 [@media(min-width:640px)]:flex-row [@media(min-width:640px)]:flex-wrap [@media(min-width:640px)]:items-end [@media(min-width:640px)]:justify-between">
           <div className="min-w-0 [@media(min-width:640px)]:flex-1">
@@ -283,11 +344,6 @@ export function PlayerConsole() {
             <Button variant="ghost" size="sm" disabled={pending} onClick={() => void send({ type: "CycleRepeat" })}>
               <Repeat className="size-4" /> {snapshot.repeatMode}
             </Button>
-            {lockReady ? null : (
-              <Button variant="ghost" size="sm" onClick={() => armLockScreen()}>
-                Lock screen
-              </Button>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-3">

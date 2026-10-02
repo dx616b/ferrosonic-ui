@@ -1,12 +1,14 @@
-/** One second of silence so the phone keeps this page as the active media app. */
+/** Long silence so the lock-screen clock is not a one-second loop back to 0. */
+
+const HOLD_SECONDS = 15 * 60;
 
 let silenceUrl: string | null = null;
 
 export function lockScreenSilenceUrl(): string {
   if (typeof window === "undefined") return "";
   if (silenceUrl) return silenceUrl;
-  const samples = 8000;
-  const dataBytes = samples * 2;
+  const sampleRate = 8000;
+  const dataBytes = sampleRate * HOLD_SECONDS;
   const buffer = new ArrayBuffer(44 + dataBytes);
   const view = new DataView(buffer);
   const text = (offset: number, value: string) => {
@@ -19,12 +21,13 @@ export function lockScreenSilenceUrl(): string {
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
   view.setUint16(22, 1, true);
-  view.setUint32(24, 8000, true);
-  view.setUint32(28, 16000, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
   text(36, "data");
   view.setUint32(40, dataBytes, true);
+  new Uint8Array(buffer, 44).fill(128);
   silenceUrl = URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
   return silenceUrl;
 }
