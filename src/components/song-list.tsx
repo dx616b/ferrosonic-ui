@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ListPlus, Star, Trash2 } from "lucide-react";
 
 import { formatTime } from "@/lib/ferrosonic/format";
@@ -27,6 +28,13 @@ export function SongList({
   onStar?: (track: Track) => void;
   onRemove?: (index: number) => void;
 }) {
+  const currentRow = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (currentIndex == null) return;
+    currentRow.current?.scrollIntoView({ block: "center", inline: "nearest" });
+  }, [currentIndex]);
+
   if (songs.length === 0) {
     return <p className="text-sm text-[var(--ferro-muted)]">{empty}</p>;
   }
@@ -38,7 +46,7 @@ export function SongList({
           currentIndex != null ? index === currentIndex : currentId != null && track.id === currentId;
         const number = albumNumbers && track.track != null ? track.track : index + 1;
         return (
-          <li key={`${track.id}-${index}`}>
+          <li key={`${track.id}-${index}`} ref={current ? currentRow : undefined}>
             <div
               className={cn(
                 "group flex w-full items-start gap-2 rounded-md px-2.5 py-2",

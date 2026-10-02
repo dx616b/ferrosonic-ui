@@ -24,6 +24,21 @@ export function QueuePage({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-xl tracking-[-0.02em]">Queue ({snapshot.queue.length})</h2>
         <div className="flex flex-wrap gap-1">
+          {snapshot.queue.length > 1 && current != null ? (
+            <>
+              <Button variant="outline" size="sm" disabled={busy || current <= 0} onClick={() => void send({ type: "MoveQueueItem", from: current, to: current - 1 })}>
+                <ArrowUp className="size-3.5" /> Up
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy || current >= snapshot.queue.length - 1}
+                onClick={() => void send({ type: "MoveQueueItem", from: current, to: current + 1 })}
+              >
+                <ArrowDown className="size-3.5" /> Down
+              </Button>
+            </>
+          ) : null}
           <Button variant="ghost" size="sm" disabled={busy || snapshot.queue.length < 2} onClick={() => void send({ type: "ShuffleQueue" })}>
             <Shuffle className="size-3.5" /> Shuffle
           </Button>
@@ -42,26 +57,6 @@ export function QueuePage({
         onPlay={(index) => void send({ type: "PlayQueueIndex", index })}
         onRemove={(index) => void send({ type: "RemoveFromQueue", index })}
       />
-      {snapshot.queue.length > 1 && current != null ? (
-        <div className="mt-3 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy || current <= 0}
-            onClick={() => void send({ type: "MoveQueueItem", from: current, to: current - 1 })}
-          >
-            <ArrowUp className="size-3.5" /> Move current up
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy || current >= snapshot.queue.length - 1}
-            onClick={() => void send({ type: "MoveQueueItem", from: current, to: current + 1 })}
-          >
-            <ArrowDown className="size-3.5" /> Move current down
-          </Button>
-        </div>
-      ) : null}
       <form
         className="mt-4 flex gap-2"
         onSubmit={(event) => {

@@ -23,11 +23,13 @@ export function LibraryPage({
   const [songs, setSongs] = useState<Track[]>([]);
   const [hits, setHits] = useState<PlayerData["search"]>();
   const [searchPane, setSearchPane] = useState<"artists" | "albums" | "songs">("songs");
+  const [searchAlbum, setSearchAlbum] = useState<AlbumItem | null>(null);
 
   const artists = snapshot.library.artists;
 
   async function openArtist(artist: ArtistItem) {
     setHits(undefined);
+    setSearchAlbum(null);
     setArtistId(artist.id);
     setAlbumId(null);
     setSongs([]);
@@ -37,6 +39,10 @@ export function LibraryPage({
 
   async function openAlbum(album: AlbumItem) {
     setAlbumId(album.id);
+    if (hits) {
+      setSearchAlbum(album);
+      setSearchPane("songs");
+    }
     const data = await send({ type: "LoadAlbum", id: album.id });
     setSongs(data?.songs ?? []);
   }
@@ -44,9 +50,18 @@ export function LibraryPage({
   async function search() {
     const data = await send({ type: "Search", query });
     setHits(data?.search ?? { artists: [], albums: [], songs: [] });
+    setSearchAlbum(null);
     setSearchPane("songs");
     setArtistId(null);
     setAlbumId(null);
+    setSongs([]);
+  }
+
+  function clearSearch() {
+    setHits(undefined);
+    setSearchAlbum(null);
+    setAlbumId(null);
+    setSongs([]);
   }
 
   function backLibrary() {
@@ -79,6 +94,11 @@ export function LibraryPage({
         <Button variant="outline" size="sm" disabled={busy} onClick={() => void search()}>
           Search
         </Button>
+        {hits ? (
+          <Button variant="ghost" size="sm" onClick={clearSearch}>
+            Library
+          </Button>
+        ) : null}
         <Button variant="ghost" size="sm" disabled={busy} onClick={() => void send({ type: "ShuffleLibrary" })}>
           Shuffle library
         </Button>
@@ -139,13 +159,16 @@ export function LibraryPage({
                 }}
               />
             </Column>
-            <Column title="Songs" className={searchPane === "songs" ? undefined : "max-md:hidden"}>
+            <Column title={searchAlbum?.name ?? "Songs"} className={searchPane === "songs" ? undefined : "max-md:hidden"}>
               <SongList
-                songs={hits.songs}
-                empty="No matching songs."
+                songs={searchAlbum ? songs : hits.songs}
+                empty={searchAlbum ? "This album has no tracks." : "No matching songs."}
+                albumNumbers={searchAlbum != null}
                 onPlay={(index) => {
-                  const song = hits.songs[index];
-                  if (song) playSongs([song], 0);
+                  const list = searchAlbum ? songs : hits.songs;
+                  const song = list[index];
+                  if (!song) return;
+                  playSongs(searchAlbum ? list : [song], searchAlbum ? index : 0);
                 }}
                 onAppend={(track) => void send({ type: "Enqueue", songs: [track], mode: { kind: "append" } })}
                 onStar={(track) => void send({ type: "ToggleStar", id: track.id })}

@@ -11,7 +11,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { LibraryPage } from "@/components/pages/library-page";
 import { PlaylistsPage } from "@/components/pages/playlists-page";
@@ -51,17 +51,24 @@ export function PlayerConsole() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [page, setPage] = useState<PageName>("Library");
+  const [volumeDrag, setVolumeDrag] = useState<number | null>(null);
+  const [seekDrag, setSeekDrag] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+  const epoch = useRef(0);
 
   const refresh = useCallback(async () => {
+    const started = epoch.current;
     try {
       const res = await fetch("/api/player", { cache: "no-store" });
+      if (started !== epoch.current) return;
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const data = (await res.json()) as PlayerView;
+      if (started !== epoch.current) return;
       setSnapshot(data.snapshot);
       setError(null);
       setLoaded(true);
     } catch (err) {
+      if (started !== epoch.current) return;
       setError((err as Error).message);
       setLoaded(true);
     }
@@ -71,6 +78,8 @@ export function PlayerConsole() {
     (cmd: PlayerCommand) =>
       new Promise<PlayerData | undefined>((resolve) => {
         startTransition(async () => {
+          epoch.current += 1;
+          const started = epoch.current;
           try {
             const res = await fetch("/api/player", {
               method: "POST",
@@ -78,12 +87,20 @@ export function PlayerConsole() {
               body: JSON.stringify(cmd),
             });
             const data = (await res.json()) as PlayerView & { error?: string };
+            if (started !== epoch.current) {
+              resolve(undefined);
+              return;
+            }
             if (!res.ok) throw new Error(data.error ?? `Command failed (${res.status})`);
             setSnapshot(data.snapshot);
             setError(null);
             setNotice(data.data?.notice ?? data.data?.connection?.message ?? null);
             resolve(data.data);
           } catch (err) {
+            if (started !== epoch.current) {
+              resolve(undefined);
+              return;
+            }
             setError((err as Error).message);
             resolve(undefined);
           }
@@ -100,10 +117,12 @@ export function PlayerConsole() {
     return () => clearInterval(id);
   }, [refresh]);
 
+  const volume = volumeDrag ?? snapshot.volume;
   const np = snapshot.nowPlaying;
   const playing = np.state === "Playing";
   const progress =
-    np.duration > 0 ? Math.min(100, Math.max(0, (np.position / np.duration) * 100)) : 0;
+    seekDrag ?? (np.duration > 0 ? Math.min(100, Math.max(0, (np.position / np.duration) * 100)) : 0);
+  const shownPosition = seekDrag != null && np.duration > 0 ? (seekDrag / 100) * np.duration : np.position;
   const quality = formatQuality(np);
   const modeLabel =
     snapshot.mode === "daemon" ? "Connected" : snapshot.mode === "disconnected" ? "Daemon unreachable" : "Demo mode";
@@ -191,33 +210,48 @@ export function PlayerConsole() {
             </Button>
           </div>
         </div>
-        <Slider
-          value={[progress]}
-          max={100}
-          step={0.1}
-          disabled={!np.song || np.duration <= 0}
-          onValueCommitted={(value) => {
-            const pct = Array.isArray(value) ? Number(value[0]) : Number(value);
-            void send({ type: "Seek", seconds: (pct / 100) * np.duration });
-          }}
-          aria-label="Seek"
-        />
         <div className="flex items-center gap-3">
-          <span className="w-12 font-mono text-[10px] text-[var(--ferro-muted)]">{formatTime(np.position)}</span>
+          <span className="w-12 font-mono text-[10px] text-[var(--ferro-muted)]">{formatTime(shownPosition)}</span>
+          <Slider
+            value={[progress]}
+            max={100}
+            step={0.1}
+            disabled={!np.song || np.duration <= 0}
+            onValueChange={(value) => {
+              const pct = Array.isArray(value) ? Number(value[0]) : Number(value);
+              if (Number.isFinite(pct)) setSeekDrag(pct);
+            }}
+            onValueCommitted={(value) => {
+              const pct = Array.isArray(value) ? Number(value[0]) : Number(value);
+              if (!Number.isFinite(pct) || np.duration <= 0) return;
+              setSeekDrag(pct);
+              void send({ type: "Seek", seconds: (pct / 100) * np.duration }).finally(() => setSeekDrag(null));
+            }}
+            aria-label="Seek"
+            className="min-w-0 flex-1"
+          />
+          <span className="w-12 text-right font-mono text-[10px] text-[var(--ferro-muted)]">{formatTime(np.duration)}</span>
+        </div>
+        <div className="flex items-center gap-3">
           <Volume2 className="size-4 shrink-0 text-[var(--ferro-muted)]" aria-hidden />
           <Slider
-            value={[snapshot.volume]}
+            value={[volume]}
             max={100}
             step={1}
+            onValueChange={(value) => {
+              const next = Array.isArray(value) ? Number(value[0]) : Number(value);
+              if (Number.isFinite(next)) setVolumeDrag(next);
+            }}
             onValueCommitted={(value) => {
-              const volume = Array.isArray(value) ? Number(value[0]) : Number(value);
-              void send({ type: "SetVolume", volume });
+              const next = Array.isArray(value) ? Number(value[0]) : Number(value);
+              if (!Number.isFinite(next)) return;
+              setVolumeDrag(next);
+              void send({ type: "SetVolume", volume: next }).finally(() => setVolumeDrag(null));
             }}
             aria-label="Volume"
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
-          <span className="w-10 text-right font-mono text-[10px] text-[var(--ferro-muted)]">{snapshot.volume}%</span>
-          <span className="font-mono text-[10px] text-[var(--ferro-muted)]">{formatTime(np.duration)}</span>
+          <span className="w-10 text-right font-mono text-[10px] text-[var(--ferro-muted)]">{Math.round(volume)}%</span>
         </div>
       </section>
 
