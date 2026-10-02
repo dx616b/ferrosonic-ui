@@ -22,6 +22,7 @@ import { SettingsPage } from "@/components/pages/settings-page";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { formatQuality, formatTime } from "@/lib/ferrosonic/format";
+import { lockScreenSilenceUrl } from "@/lib/ferrosonic/lock-screen";
 import type { PlayerCommand, PlayerData, PlayerSnapshot, PlayerView } from "@/lib/ferrosonic/types";
 import { EMPTY_LIBRARY, EMPTY_SETTINGS } from "@/lib/ferrosonic/types";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ export function PlayerConsole() {
   const [seekDrag, setSeekDrag] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const epoch = useRef(0);
+  const volumePointer = useRef({ x: 0, y: 0, sideways: false });
 
   const refresh = useCallback(async () => {
     const started = epoch.current;
@@ -126,6 +128,78 @@ export function PlayerConsole() {
   const quality = formatQuality(np);
   const modeLabel =
     snapshot.mode === "daemon" ? "Connected" : snapshot.mode === "disconnected" ? "Daemon unreachable" : "Demo mode";
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [lockReady, setLockReady] = useState(false);
+  const mediaBlockedUntil = useRef(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.src = lockScreenSilenceUrl();
+    audio.loop = true;
+  }, []);
+
+  const armLockScreen = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || lockReady) return;
+    mediaBlockedUntil.current = Date.now() + 1500;
+    audio.loop = true;
+    void audio.play().then(() => setLockReady(true)).catch(() => setLockReady(false));
+  }, [lockReady]);
+
+  useEffect(() => {
+    if (!lockReady || typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const session = navigator.mediaSession;
+    const song = np.song;
+    session.metadata = new MediaMetadata({
+      title: song?.title ?? "Ferrosonic",
+      artist: song?.artist ?? "",
+      album: song?.album ?? "",
+    });
+    session.playbackState = playing ? "playing" : "paused";
+    if (np.duration > 0 && Number.isFinite(shownPosition)) {
+      const position = Math.min(Math.max(0, shownPosition), np.duration);
+      try {
+        session.setPositionState({ duration: np.duration, playbackRate: playing ? 1 : 0, position });
+      } catch {
+        // The browser rejects a position the clock has not caught up with yet.
+      }
+    }
+    const allowed = () => Date.now() >= mediaBlockedUntil.current;
+    const bind = (action: MediaSessionAction, run: MediaSessionActionHandler | null) => {
+      try {
+        session.setActionHandler(action, run);
+      } catch {
+        // This browser does not offer that lock-screen action.
+      }
+    };
+    bind("play", () => {
+      if (allowed() && !playing) void send({ type: "Resume" });
+    });
+    bind("pause", () => {
+      if (allowed() && playing) void send({ type: "Pause" });
+    });
+    bind("previoustrack", () => {
+      if (allowed()) void send({ type: "Previous" });
+    });
+    bind("nexttrack", () => {
+      if (allowed()) void send({ type: "Next" });
+    });
+    bind("stop", () => {
+      if (allowed()) void send({ type: "Stop" });
+    });
+    bind("seekto", (details) => {
+      if (allowed() && details.seekTime != null) void send({ type: "Seek", seconds: details.seekTime });
+    });
+    return () => {
+      bind("play", null);
+      bind("pause", null);
+      bind("previoustrack", null);
+      bind("nexttrack", null);
+      bind("seekto", null);
+      bind("stop", null);
+    };
+  }, [lockReady, np.song, np.duration, playing, shownPosition, send]);
 
   return (
     <div className="relative flex min-h-dvh w-full flex-col gap-4 px-[clamp(0.75rem,2.5vw,2rem)] pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
@@ -173,6 +247,7 @@ export function PlayerConsole() {
         </p>
       )}
 
+      <audio ref={audioRef} className="pointer-events-none absolute h-0 w-0" preload="auto" playsInline loop />
       <section className="ferro-panel sticky top-[env(safe-area-inset-top,0px)] z-30 space-y-2 bg-[#07131c]/95 p-3 [@media(max-height:700px)]:space-y-1 [@media(max-height:700px)]:p-2 [@media(min-width:640px)]:top-3 [@media(min-width:640px)]:space-y-3 [@media(min-width:640px)]:p-4">
         <div className="flex flex-col gap-3 [@media(min-width:640px)]:flex-row [@media(min-width:640px)]:flex-wrap [@media(min-width:640px)]:items-end [@media(min-width:640px)]:justify-between">
           <div className="min-w-0 [@media(min-width:640px)]:flex-1">
@@ -208,6 +283,11 @@ export function PlayerConsole() {
             <Button variant="ghost" size="sm" disabled={pending} onClick={() => void send({ type: "CycleRepeat" })}>
               <Repeat className="size-4" /> {snapshot.repeatMode}
             </Button>
+            {lockReady ? null : (
+              <Button variant="ghost" size="sm" onClick={() => armLockScreen()}>
+                Lock screen
+              </Button>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -232,19 +312,33 @@ export function PlayerConsole() {
           />
           <span className="w-12 text-right font-mono text-[10px] text-[var(--ferro-muted)]">{formatTime(np.duration)}</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3"
+          onPointerDownCapture={(event) => {
+            volumePointer.current = { x: event.clientX, y: event.clientY, sideways: false };
+          }}
+          onPointerMoveCapture={(event) => {
+            const dx = Math.abs(event.clientX - volumePointer.current.x);
+            const dy = Math.abs(event.clientY - volumePointer.current.y);
+            if (dx > 12 && dx > dy) volumePointer.current.sideways = true;
+          }}
+        >
           <Volume2 className="size-4 shrink-0 text-[var(--ferro-muted)]" aria-hidden />
           <Slider
             value={[volume]}
             max={100}
             step={1}
             onValueChange={(value) => {
+              if (!volumePointer.current.sideways) return;
               const next = Array.isArray(value) ? Number(value[0]) : Number(value);
               if (Number.isFinite(next)) setVolumeDrag(next);
             }}
             onValueCommitted={(value) => {
               const next = Array.isArray(value) ? Number(value[0]) : Number(value);
-              if (!Number.isFinite(next)) return;
+              if (!volumePointer.current.sideways || !Number.isFinite(next)) {
+                setVolumeDrag(null);
+                return;
+              }
               setVolumeDrag(next);
               void send({ type: "SetVolume", volume: next }).finally(() => setVolumeDrag(null));
             }}
