@@ -24,6 +24,12 @@ export const metadata: Metadata = {
   title: "Ferrosonic — Player Control",
   description:
     "Web control surface for the Ferrosonic Subsonic player: transport, volume, queue, and daemon status.",
+  applicationName: "Ferrosonic",
+  appleWebApp: {
+    capable: true,
+    title: "Ferrosonic",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
