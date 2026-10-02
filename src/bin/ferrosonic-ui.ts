@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { homedir } from "node:os";
@@ -116,8 +116,22 @@ function parseArgs(argv: string[]): Launch {
   return { port, hostname, help, daemon, serveUi, spawnPlayer, playerArgs };
 }
 
+function invocationName(): string {
+  // The installed `ferrosonic` command is a symlink to this binary. Bun reports
+  // the symlink target in process.argv[0], which would start the web server.
+  // /proc/self/cmdline keeps the name that was executed.
+  try {
+    const raw = readFileSync("/proc/self/cmdline");
+    const end = raw.indexOf(0);
+    if (end > 0) return path.basename(raw.toString("utf8", 0, end));
+  } catch {
+    // Non-Linux hosts keep process.argv.
+  }
+  return path.basename(process.argv[0] ?? "");
+}
+
 function invokedAsCli(): boolean {
-  return path.basename(process.argv[0] ?? "") === "ferrosonic";
+  return invocationName() === "ferrosonic";
 }
 
 function findOnPath(): string | null {
