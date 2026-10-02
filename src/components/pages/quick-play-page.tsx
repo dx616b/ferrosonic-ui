@@ -29,17 +29,17 @@ export function QuickPlayPage({
     option === "starred" ? snapshot.library.starred : option === "random" ? snapshot.library.random : snapshot.library.radio;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
-      <section className="ferro-panel flex gap-1 p-2 lg:flex-col lg:p-3">
-        <h2 className="mb-2 hidden px-2 font-display text-lg lg:block">Song Options</h2>
-        <ul className="flex w-full gap-1 lg:flex-col">
+    <div className="grid gap-4 md:grid-cols-[minmax(9rem,14rem)_minmax(0,1fr)]">
+      <section className="ferro-panel flex gap-1 p-2 md:flex-col md:p-3">
+        <h2 className="mb-2 hidden px-2 font-display text-lg md:block">Song Options</h2>
+        <ul className="flex w-full gap-1 md:flex-col">
           {OPTIONS.map((item) => (
             <li key={item.id} className="flex-1">
               <button
                 type="button"
                 onClick={() => setOption(item.id)}
                 className={cn(
-                  "w-full rounded-md px-3 py-3 text-center text-sm hover:bg-white/5 lg:py-2 lg:text-left",
+                  "w-full rounded-md px-3 py-3 text-center text-sm hover:bg-white/5 md:py-2 md:text-left",
                   option === item.id && "bg-[var(--ferro-cyan)]/15 text-[var(--ferro-cyan)]",
                 )}
               >

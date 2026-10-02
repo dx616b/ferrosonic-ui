@@ -64,18 +64,18 @@ export function SongList({
                 </span>
               </button>
               {onAppend ? (
-                <button type="button" aria-label={`Queue ${track.title}`} className="rounded p-2 hover:bg-white/10 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" onClick={() => onAppend(track)}>
-                  <ListPlus className="size-4 text-[var(--ferro-muted)] sm:size-3.5" />
+                <button type="button" aria-label={`Queue ${track.title}`} className="rounded p-2 hover:bg-white/10 [@media(hover:hover)]:p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100" onClick={() => onAppend(track)}>
+                  <ListPlus className="size-4 text-[var(--ferro-muted)]" />
                 </button>
               ) : null}
               {onStar ? (
-                <button type="button" aria-label={`Star ${track.title}`} className="rounded p-2 hover:bg-white/10 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" onClick={() => onStar(track)}>
-                  <Star className={cn("size-4 sm:size-3.5", track.starred ? "text-[var(--ferro-yellow)]" : "text-[var(--ferro-muted)]")} />
+                <button type="button" aria-label={`Star ${track.title}`} className="rounded p-2 hover:bg-white/10 [@media(hover:hover)]:p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100" onClick={() => onStar(track)}>
+                  <Star className={cn("size-4", track.starred ? "text-[var(--ferro-yellow)]" : "text-[var(--ferro-muted)]")} />
                 </button>
               ) : null}
               {onRemove ? (
-                <button type="button" aria-label={`Remove ${track.title}`} className="rounded p-2 hover:bg-white/10 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" onClick={() => onRemove(index)}>
-                  <Trash2 className="size-4 text-[var(--ferro-muted)] sm:size-3.5" />
+                <button type="button" aria-label={`Remove ${track.title}`} className="rounded p-2 hover:bg-white/10 [@media(hover:hover)]:p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100" onClick={() => onRemove(index)}>
+                  <Trash2 className="size-4 text-[var(--ferro-muted)]" />
                 </button>
               ) : null}
             </div>

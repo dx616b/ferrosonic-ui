@@ -33,8 +33,8 @@ export function PlaylistsPage({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-      <section className={cn("ferro-panel p-4", selected && "max-lg:hidden")}>
+    <div className="grid gap-4 md:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.2fr)]">
+      <section className={cn("ferro-panel p-4", selected && "max-md:hidden")}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg">Playlists</h2>
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => void send({ type: "RefreshPlaylists" })}>
@@ -49,7 +49,7 @@ export function PlaylistsPage({
                 type="button"
                 onClick={() => void open(playlist.id)}
                 className={cn(
-                  "w-full rounded-md px-2.5 py-3 text-left hover:bg-white/5 sm:py-2",
+                  "w-full rounded-md px-2.5 py-3 text-left hover:bg-white/5 [@media(hover:hover)]:py-2",
                   selected === playlist.id && "bg-[var(--ferro-cyan)]/15 text-[var(--ferro-cyan)]",
                 )}
               >
@@ -62,12 +62,12 @@ export function PlaylistsPage({
           ))}
         </ul>
       </section>
-      <section className={cn("ferro-panel p-4", !selected && "max-lg:hidden")}>
+      <section className={cn("ferro-panel p-4", !selected && "max-md:hidden")}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
-              className="shrink-0 rounded-md px-2 py-2 text-sm text-[var(--ferro-cyan)] lg:hidden"
+              className="shrink-0 rounded-md px-2 py-2 text-sm text-[var(--ferro-cyan)] md:hidden"
               onClick={() => {
                 setSelected(null);
                 setSongs([]);

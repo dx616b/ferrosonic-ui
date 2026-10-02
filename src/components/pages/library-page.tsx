@@ -103,7 +103,7 @@ export function LibraryPage({
 
       {hits ? (
         <div className="space-y-3">
-          <div className="flex gap-1 lg:hidden">
+          <div className="flex gap-1 md:hidden">
             {(["artists", "albums", "songs"] as const).map((pane) => (
               <button
                 key={pane}
@@ -118,8 +118,8 @@ export function LibraryPage({
               </button>
             ))}
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Column title="Artists" className={searchPane === "artists" ? undefined : "max-lg:hidden"}>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Column title="Artists" className={searchPane === "artists" ? undefined : "max-md:hidden"}>
               <NameList
                 rows={hits.artists.map((artist) => ({ id: artist.id, label: artist.name, detail: artist.albumCount != null ? `${artist.albumCount} albums` : undefined }))}
                 selected={artistId}
@@ -129,7 +129,7 @@ export function LibraryPage({
                 }}
               />
             </Column>
-            <Column title="Albums" className={searchPane === "albums" ? undefined : "max-lg:hidden"}>
+            <Column title="Albums" className={searchPane === "albums" ? undefined : "max-md:hidden"}>
               <NameList
                 rows={hits.albums.map((album) => ({ id: album.id, label: album.name, detail: album.artist }))}
                 selected={albumId}
@@ -139,7 +139,7 @@ export function LibraryPage({
                 }}
               />
             </Column>
-            <Column title="Songs" className={searchPane === "songs" ? undefined : "max-lg:hidden"}>
+            <Column title="Songs" className={searchPane === "songs" ? undefined : "max-md:hidden"}>
               <SongList
                 songs={hits.songs}
                 empty="No matching songs."
@@ -154,8 +154,8 @@ export function LibraryPage({
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[0.8fr_0.8fr_1.2fr]">
-          <Column title="Artists" className={artistId ? "max-lg:hidden" : undefined}>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <Column title="Artists" className={artistId ? "max-md:hidden" : undefined}>
             <NameList
               rows={artists.map((artist) => ({
                 id: artist.id,
@@ -169,7 +169,7 @@ export function LibraryPage({
               }}
             />
           </Column>
-          <Column title="Albums" className={!artistId || albumId ? "max-lg:hidden" : undefined} onBack={backLibrary}>
+          <Column title="Albums" className={!artistId || albumId ? "max-md:hidden" : undefined} onBack={backLibrary}>
             <NameList
               rows={albums.map((album) => ({
                 id: album.id,
@@ -183,7 +183,7 @@ export function LibraryPage({
               }}
             />
           </Column>
-          <Column title="Songs" className={albumId ? undefined : "max-lg:hidden"} onBack={backLibrary}>
+          <Column title="Songs" className={albumId ? undefined : "max-md:hidden"} onBack={backLibrary}>
             <SongList
               songs={songs}
               empty="Open an album to see its tracks."
@@ -215,7 +215,7 @@ function Column({
     <section className={cn("ferro-panel p-4", className)}>
       <div className="mb-3 flex items-center gap-2">
         {onBack ? (
-          <button type="button" onClick={onBack} className="rounded-md px-2 py-2 text-sm text-[var(--ferro-cyan)] lg:hidden">
+          <button type="button" onClick={onBack} className="rounded-md px-2 py-2 text-sm text-[var(--ferro-cyan)] md:hidden">
             Back
           </button>
         ) : null}
@@ -244,7 +244,7 @@ function NameList({
             type="button"
             onClick={() => onPick(row.id)}
             className={cn(
-              "w-full rounded-md px-2.5 py-3 text-left hover:bg-white/5 sm:py-2",
+              "w-full rounded-md px-2.5 py-3 text-left hover:bg-white/5 [@media(hover:hover)]:py-2",
               selected === row.id && "bg-[var(--ferro-cyan)]/15 text-[var(--ferro-cyan)]",
             )}
           >

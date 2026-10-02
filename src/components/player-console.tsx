@@ -109,10 +109,10 @@ export function PlayerConsole() {
     snapshot.mode === "daemon" ? "Connected" : snapshot.mode === "disconnected" ? "Daemon unreachable" : "Demo mode";
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:gap-5 sm:px-6 sm:pb-10 sm:pt-6">
+    <div className="relative flex min-h-dvh w-full flex-col gap-4 px-[clamp(0.75rem,2.5vw,2rem)] pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="relative z-10 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-display text-3xl leading-none tracking-[-0.04em] text-[var(--ferro-cyan)] sm:text-5xl">
+          <p className="font-display text-[clamp(1.75rem,4.5vw,3rem)] leading-none tracking-[-0.04em] text-[var(--ferro-cyan)]">
             Ferrosonic
           </p>
           <p className="mt-2 truncate text-sm text-[var(--ferro-muted)]">{snapshot.serverLabel ?? "Player control"}</p>
@@ -132,14 +132,14 @@ export function PlayerConsole() {
         </div>
       </header>
 
-      <nav className="relative z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-white/10 px-3 pb-2 sm:mx-0 sm:px-0">
+      <nav className="relative z-10 -mx-[clamp(0.75rem,2.5vw,2rem)] flex gap-1 overflow-x-auto border-b border-white/10 px-[clamp(0.75rem,2.5vw,2rem)] pb-2">
         {PAGES.map((name) => (
           <button
             key={name}
             type="button"
             onClick={() => setPage(name)}
             className={cn(
-              "min-h-11 shrink-0 rounded-md px-3 py-2 text-sm sm:min-h-0 sm:py-1.5",
+              "min-h-11 shrink-0 rounded-md px-3 py-2 text-sm [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:py-1.5",
               page === name ? "bg-[var(--ferro-cyan)]/15 text-[var(--ferro-cyan)]" : "text-[var(--ferro-muted)] hover:text-[var(--ferro-text)]",
             )}
           >
@@ -154,20 +154,20 @@ export function PlayerConsole() {
         </p>
       )}
 
-      <section className="ferro-panel sticky top-[env(safe-area-inset-top,0px)] z-30 space-y-2 bg-[#07131c]/95 p-3 sm:top-3 sm:space-y-3 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-          <div className="min-w-0 sm:flex-1">
-            <p className="hidden text-[10px] uppercase tracking-[0.2em] text-[var(--ferro-muted)] sm:block">Now playing</p>
-            <p className="truncate font-display text-lg tracking-[-0.03em] sm:text-2xl">
+      <section className="ferro-panel sticky top-[env(safe-area-inset-top,0px)] z-30 space-y-2 bg-[#07131c]/95 p-3 [@media(max-height:700px)]:space-y-1 [@media(max-height:700px)]:p-2 [@media(min-width:640px)]:top-3 [@media(min-width:640px)]:space-y-3 [@media(min-width:640px)]:p-4">
+        <div className="flex flex-col gap-3 [@media(min-width:640px)]:flex-row [@media(min-width:640px)]:flex-wrap [@media(min-width:640px)]:items-end [@media(min-width:640px)]:justify-between">
+          <div className="min-w-0 [@media(min-width:640px)]:flex-1">
+            <p className="hidden text-[10px] uppercase tracking-[0.2em] text-[var(--ferro-muted)] [@media(min-width:640px)]:block">Now playing</p>
+            <p className="truncate font-display text-[clamp(1.05rem,2.4vw,1.75rem)] tracking-[-0.03em]">
               {np.song?.title ?? (loaded ? "Nothing queued" : "Connecting…")}
             </p>
             <p className="truncate text-sm text-[var(--ferro-cyan)]">
               {np.song?.artist ?? "—"}
               {np.song?.album ? <span className="text-[var(--ferro-muted)]"> · {np.song.album}</span> : null}
             </p>
-            {quality ? <p className="truncate font-mono text-xs text-[var(--ferro-yellow)]/90">{quality}</p> : null}
+            {quality ? <p className="truncate font-mono text-xs text-[var(--ferro-yellow)]/90 [@media(max-height:700px)]:hidden">{quality}</p> : null}
           </div>
-          <div className="flex items-center justify-between gap-1 sm:justify-end sm:gap-2">
+          <div className="flex items-center justify-between gap-1 [@media(min-width:640px)]:justify-end [@media(min-width:640px)]:gap-2">
             <Button variant="outline" size="icon" aria-label="Previous track" disabled={pending} onClick={() => void send({ type: "Previous" })}>
               <SkipBack />
             </Button>

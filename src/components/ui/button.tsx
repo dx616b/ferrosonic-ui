@@ -16,8 +16,8 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-9 px-3",
-        sm: "h-10 px-3 text-xs sm:h-8",
-        icon: "size-11 sm:size-9",
+        sm: "h-10 px-3 text-xs [@media(hover:hover)]:h-8",
+        icon: "size-11 [@media(hover:hover)]:size-9",
       },
     },
     defaultVariants: {
