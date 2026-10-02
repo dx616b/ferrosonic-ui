@@ -1,0 +1,11 @@
+#!/bin/sh
+# rustc passes -Wl,-O1 on release links. Zig 0.16 ignores that setting and warns.
+set -eu
+orig=$#
+for arg in "$@"; do
+  if [ "$arg" != "-Wl,-O1" ]; then
+    set -- "$@" "$arg"
+  fi
+done
+shift "$orig"
+exec zig "$@"

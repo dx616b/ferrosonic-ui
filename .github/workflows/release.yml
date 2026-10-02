@@ -51,6 +51,8 @@ jobs:
 
       - name: Build ferrosonic player
         working-directory: ferrosonic-src
+        env:
+          CARGO_ZIGBUILD_ZIG_PATH: ${{ github.workspace }}/scripts/zig-link
         run: |
           cargo zigbuild \
             --release \

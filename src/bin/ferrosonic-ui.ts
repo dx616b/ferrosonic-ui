@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -129,14 +129,34 @@ function findOnPath(): string | null {
   return null;
 }
 
+async function sameBytes(file: string, bytes: Buffer): Promise<boolean> {
+  try {
+    return (await readFile(file)).equals(bytes);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
+}
+
 async function bundledPlayer(): Promise<string | null> {
   const embedded = path.join(moduleDir(), "player", "ferrosonic");
   if (!existsSync(embedded)) return null;
   const dir = path.join(homedir(), ".local", "share", "ferrosonic-ui");
   const dest = path.join(dir, "ferrosonic");
   await mkdir(dir, { recursive: true });
-  await writeFile(dest, await readFile(embedded));
-  await chmod(dest, 0o755);
+  const bytes = await readFile(embedded);
+  if (await sameBytes(dest, bytes)) return dest;
+  // The daemon may already be executing dest. Opening it for write returns
+  // ETXTBSY; a new file renamed into place leaves that process on the old inode.
+  const tmp = path.join(dir, `.ferrosonic.${process.pid}.tmp`);
+  try {
+    await writeFile(tmp, bytes);
+    await chmod(tmp, 0o755);
+    await rename(tmp, dest);
+  } catch (err) {
+    await unlink(tmp).catch(() => undefined);
+    throw err;
+  }
   return dest;
 }
 
