@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   description:
     "Web control surface for the Ferrosonic Subsonic player: transport, volume, queue, and daemon status.",
   applicationName: "Ferrosonic",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Ferrosonic",
