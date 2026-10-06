@@ -39,15 +39,26 @@ export async function runPlayerCommand(cmd: PlayerCommand): Promise<PlayerView> 
   try {
     return await sendDaemonCommand(cmd);
   } catch (err) {
-    const demo = getDemoPlayer().command(cmd);
-    return {
-      ...demo,
-      snapshot: {
-        ...demo.snapshot,
-        mode: "disconnected",
-        socketPath: getConfiguredSocketPath(),
-        message: `Daemon command failed (${(err as Error).message}). Applied to demo fallback.`,
-      },
-    };
+    // Do not apply the command to the demo player: that looks like a successful
+    // save while the live daemon never got the credentials.
+    try {
+      const snapshot = await fetchDaemonSnapshot();
+      return {
+        snapshot: {
+          ...snapshot,
+          message: `Daemon command failed (${(err as Error).message}).`,
+        },
+      };
+    } catch {
+      const demo = getDemoPlayer().snapshot();
+      return {
+        snapshot: {
+          ...demo,
+          mode: "disconnected",
+          socketPath: getConfiguredSocketPath(),
+          message: `Daemon command failed (${(err as Error).message}). Showing demo state.`,
+        },
+      };
+    }
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { PlayerCommand, PlayerData, PlayerSnapshot } from "@/lib/ferrosonic/types";
@@ -19,7 +19,16 @@ export function ServerPage({
   const [password, setPassword] = useState("");
   const [result, setResult] = useState<string | null>(null);
 
+  useEffect(() => {
+    setBaseUrl(snapshot.settings.baseUrl);
+    setUsername(snapshot.settings.username);
+  }, [snapshot.settings.baseUrl, snapshot.settings.username]);
+
   async function submit(kind: "test" | "save") {
+    if (!password && !snapshot.settings.passwordSet) {
+      setResult("Password is required.");
+      return;
+    }
     const cmd: PlayerCommand =
       kind === "test"
         ? { type: "TestServer", baseUrl, username, password }

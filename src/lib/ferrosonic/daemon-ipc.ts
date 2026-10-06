@@ -261,10 +261,14 @@ function mapSettings(config: Record<string, unknown> | null): PlayerSettings {
   if (!config) return { ...EMPTY_SETTINGS };
   const password = config.Password;
   const folder = config.MusicFolderId;
+  const passwordFile = typeof config.PasswordFile === "string" && config.PasswordFile.length > 0;
+  const passwordEval = config.PasswordEval != null;
+  const passwordKeyring = config.PasswordKeyring === true;
+  const passwordInline = typeof password === "string" && password.length > 0;
   return {
     baseUrl: typeof config.BaseURL === "string" ? config.BaseURL : "",
     username: typeof config.Username === "string" ? config.Username : "",
-    passwordSet: typeof password === "string" && password.length > 0,
+    passwordSet: passwordKeyring || passwordFile || passwordEval || passwordInline,
     autoContinue: bool(config.AutoContinue, false),
     scrobble: bool(config.Scrobble, true),
     musicFolderId: typeof folder === "number" ? folder : null,
@@ -353,7 +357,18 @@ function dataFromPayload(payload: unknown): PlayerData | undefined {
   if (typeof boxed.ServerConfigSaved === "string") {
     return { notice: `Password stored in ${boxed.ServerConfigSaved}.` };
   }
+  if (boxed.ServerConfigSaved != null) {
+    return { notice: "Server settings saved." };
+  }
   return undefined;
+}
+
+function commandTimeoutMs(cmd: PlayerCommand): number {
+  // Save waits for a full library refresh on the daemon.
+  if (cmd.type === "UpdateServer" || cmd.type === "TestServer" || cmd.type === "RefreshArtists") {
+    return 120_000;
+  }
+  return 8000;
 }
 
 function requestDaemon(socketPath: string, req: unknown, timeoutMs = 8000): Promise<unknown> {
@@ -433,7 +448,7 @@ export async function sendDaemonCommand(
     const next = order[(idx + 1) % order.length]!;
     request = { SetRepeatMode: next };
   }
-  const payload = await requestDaemon(socketPath, request);
+  const payload = await requestDaemon(socketPath, request, commandTimeoutMs(cmd));
   const data = dataFromPayload(payload);
   const snapshot = await fetchDaemonSnapshot(socketPath);
   return data ? { snapshot, data } : { snapshot };
