@@ -453,3 +453,59 @@ export async function sendDaemonCommand(
   const snapshot = await fetchDaemonSnapshot(socketPath);
   return data ? { snapshot, data } : { snapshot };
 }
+
+/** Keep one IPC client connected so the daemon does not idle-exit under the web UI. */
+export function holdDaemonAlive(socketPath = resolveSocketPath()): void {
+  let nextId = 1;
+  let buffer: Buffer = Buffer.alloc(0);
+  let socket: net.Socket | null = null;
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearTimers = () => {
+    if (pingTimer) clearInterval(pingTimer);
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    pingTimer = null;
+    reconnectTimer = null;
+  };
+
+  const scheduleReconnect = () => {
+    clearTimers();
+    if (socket) {
+      socket.destroy();
+      socket = null;
+    }
+    reconnectTimer = setTimeout(connect, 2000);
+  };
+
+  const connect = () => {
+    if (!socketExists(socketPath)) {
+      scheduleReconnect();
+      return;
+    }
+    const s = net.createConnection(socketPath);
+    socket = s;
+    buffer = Buffer.alloc(0);
+    s.on("connect", () => {
+      const ping = () => {
+        if (!socket || socket.destroyed) return;
+        socket.write(encodeFrame({ Request: { id: nextId++, req: "Ping" } }));
+      };
+      ping();
+      pingTimer = setInterval(ping, 15_000);
+    });
+    s.on("data", (chunk: Buffer) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      try {
+        const { rest } = readFrames(buffer);
+        buffer = rest;
+      } catch {
+        scheduleReconnect();
+      }
+    });
+    s.on("error", () => scheduleReconnect());
+    s.on("close", () => scheduleReconnect());
+  };
+
+  connect();
+}

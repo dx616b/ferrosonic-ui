@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getConfiguredSocketPath, socketExists } from "../lib/ferrosonic/daemon-ipc";
+import { getConfiguredSocketPath, holdDaemonAlive, socketExists } from "../lib/ferrosonic/daemon-ipc";
 import { handlePlayerHttp } from "../lib/ferrosonic/player-http";
 
 const DEFAULT_PORT = 4317;
@@ -203,7 +203,7 @@ async function startOwnedPlayer(bin: string, playerArgs: string[]): Promise<Chil
     console.log("ferrosonic daemon already running");
     return null;
   }
-  const env = { ...process.env };
+  const env = { ...process.env, FERROSONIC_NO_IDLE_EXIT: "1" };
   delete env.FERROSONIC_LAUNCHER;
   const child = spawn(bin, ["--daemon", ...playerArgs], { stdio: "ignore", env });
   for (let i = 0; i < 50; i += 1) {
@@ -311,6 +311,7 @@ if (!launch.serveUi) {
       owned = await startOwnedPlayer(bin, launch.playerArgs);
     }
   }
+  holdDaemonAlive();
 
   const stopOwned = () => {
     if (owned && owned.exitCode == null) owned.kill("SIGTERM");
