@@ -204,7 +204,7 @@ async function startOwnedPlayer(bin: string, playerArgs: string[]): Promise<Chil
     return null;
   }
   const env = { ...process.env, FERROSONIC_NO_IDLE_EXIT: "1" };
-  delete env.FERROSONIC_LAUNCHER;
+  delete (env as NodeJS.ProcessEnv).FERROSONIC_LAUNCHER;
   const child = spawn(bin, ["--daemon", ...playerArgs], { stdio: "ignore", env });
   for (let i = 0; i < 50; i += 1) {
     if (socketExists()) {
