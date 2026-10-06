@@ -3,7 +3,7 @@ set -e
 
 REPO="dx616b/ferrosonic-ui"
 INSTALL_DIR="/usr/local/bin"
-SERVICE_URL="https://cdn.jsdelivr.net/gh/$REPO@main/contrib/ferrosonic-ui.service"
+SERVICE_URL="https://raw.githubusercontent.com/$REPO/main/contrib/ferrosonic-ui.service"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNIT_NAME="ferrosonic-ui.service"
 

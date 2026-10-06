@@ -9,7 +9,7 @@ Ferrosonic itself is a Rust Subsonic TUI/daemon. This app talks to `ferrosonicd`
 Ships as one executable, the same way Ferrosonic does. The machine that runs it does not need Node.js.
 
 ```bash
-curl -sSf https://cdn.jsdelivr.net/gh/dx616b/ferrosonic-ui@main/install.sh | sh
+curl -sSf https://raw.githubusercontent.com/dx616b/ferrosonic-ui/main/install.sh | sh
 ```
 
 That installs the binary, links `ferrosonic`, and enables a user service that keeps the player and page on port 4317, all interfaces (`0.0.0.0`).
