@@ -12,7 +12,7 @@ Ships as one executable, the same way Ferrosonic does. The machine that runs it 
 curl -sSf https://cdn.jsdelivr.net/gh/dx616b/ferrosonic-ui@main/install.sh | sh
 ```
 
-That installs the binary, links `ferrosonic`, and enables a user service that keeps the player and page on port 4317. Open http://127.0.0.1:4317/ after install.
+That installs the binary, links `ferrosonic`, and enables a user service that keeps the player and page on port 4317, all interfaces (`0.0.0.0`).
 
 The install provides both commands from one binary:
 
