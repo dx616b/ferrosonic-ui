@@ -3,6 +3,9 @@ set -e
 
 REPO="dx616b/ferrosonic-ui"
 INSTALL_DIR="/usr/local/bin"
+SERVICE_URL="https://raw.githubusercontent.com/$REPO/main/contrib/ferrosonic-ui.service"
+UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+UNIT_NAME="ferrosonic-ui.service"
 
 echo "Ferrosonic UI installer"
 echo "======================="
@@ -55,8 +58,19 @@ chmod +x "$TMP"
 sudo mv "$TMP" "$INSTALL_DIR/ferrosonic-ui"
 sudo ln -sfn ferrosonic-ui "$INSTALL_DIR/ferrosonic"
 
+echo "Installing user service..."
+mkdir -p "$UNIT_DIR"
+if ! curl -fsSL "$SERVICE_URL" -o "$UNIT_DIR/$UNIT_NAME"; then
+  echo "Failed to download $UNIT_NAME from: $SERVICE_URL"
+  exit 1
+fi
+systemctl --user daemon-reload
+systemctl --user enable --now "$UNIT_NAME"
+
 echo ""
 echo "ferrosonic-ui $LATEST installed to $INSTALL_DIR/"
 echo "  ferrosonic              terminal UI"
 echo "  ferrosonic --daemon     player and web UI"
 echo "  ferrosonic-ui           web UI in the foreground"
+echo "  $UNIT_NAME              enabled and started"
+echo "Open http://127.0.0.1:4317/"

@@ -10,8 +10,9 @@ Ships as one executable, the same way Ferrosonic does. The machine that runs it 
 
 ```bash
 curl -sSf https://raw.githubusercontent.com/dx616b/ferrosonic-ui/main/install.sh | sh
-ferrosonic-ui
 ```
+
+That installs the binary, links `ferrosonic`, and enables a user service that keeps the player and page on port 4317. Open http://127.0.0.1:4317/ after install.
 
 The install provides both commands from one binary:
 
@@ -25,12 +26,11 @@ ferrosonic-ui               # web UI in the foreground
 
 `--hostname` and `--port` choose where the page listens (`FERROSONIC_UI_HOST`, `FERROSONIC_UI_PORT`). Audio still needs `mpv`.
 
-A user service that keeps the terminal closed and serves the page with the player:
+Restart or stop the background service:
 
 ```bash
-mkdir -p ~/.config/systemd/user
-cp contrib/ferrosonic-ui.service ~/.config/systemd/user/
-systemctl --user enable --now ferrosonic-ui.service
+systemctl --user restart ferrosonic-ui.service
+systemctl --user stop ferrosonic-ui.service
 ```
 
 Build the binary yourself (needs Node.js and [Bun](https://bun.sh)):
