@@ -22,6 +22,31 @@ case "$ARCH" in
     ;;
 esac
 
+echo "Installing runtime dependencies..."
+if command -v pacman >/dev/null 2>&1; then
+  echo "Detected Arch Linux"
+  sudo pacman -S --needed --noconfirm mpv pipewire wireplumber dbus
+elif command -v dnf >/dev/null 2>&1; then
+  echo "Detected Fedora"
+  sudo dnf install -y mpv pipewire wireplumber dbus
+elif command -v apt >/dev/null 2>&1; then
+  echo "Detected Debian/Ubuntu"
+  sudo apt-get update
+  sudo apt-get install -y mpv pipewire wireplumber dbus
+else
+  echo "Unknown package manager. Install manually: mpv, pipewire, wireplumber, dbus"
+  echo "Then re-run this script."
+  exit 1
+fi
+
+if ! command -v mpv >/dev/null 2>&1; then
+  echo "mpv is required for audio and was not found after install."
+  exit 1
+fi
+
+systemctl --user enable --now pipewire.service pipewire.socket 2>/dev/null || true
+systemctl --user enable --now wireplumber.service 2>/dev/null || true
+
 echo "Querying latest release..."
 API_LATEST="https://api.github.com/repos/$REPO/releases/latest"
 if ! RELEASE_JSON=$(curl -fsSL "$API_LATEST"); then
@@ -73,4 +98,5 @@ echo "  ferrosonic              terminal UI"
 echo "  ferrosonic --daemon     player and web UI"
 echo "  ferrosonic-ui           web UI in the foreground"
 echo "  $UNIT_NAME              enabled and started"
+echo "  mpv $(mpv --version 2>/dev/null | head -n1 | sed 's/^mpv //')"
 echo "Listening on http://0.0.0.0:4317/ (all interfaces)"

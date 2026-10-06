@@ -12,7 +12,7 @@ Ships as one executable, the same way Ferrosonic does. The machine that runs it 
 curl -sSf https://raw.githubusercontent.com/dx616b/ferrosonic-ui/main/install.sh | sh
 ```
 
-That installs the binary, links `ferrosonic`, and enables a user service that keeps the player and page on port 4317, all interfaces (`0.0.0.0`).
+That installs runtime dependencies (`mpv`, PipeWire, WirePlumber, D-Bus), the binary, links `ferrosonic`, and enables a user service that keeps the player and page on port 4317, all interfaces (`0.0.0.0`).
 
 The install provides both commands from one binary:
 
@@ -24,7 +24,7 @@ ferrosonic -c FILE -v       # same terminal flags as Ferrosonic
 ferrosonic-ui               # web UI in the foreground
 ```
 
-`--hostname` and `--port` choose where the page listens (`FERROSONIC_UI_HOST`, `FERROSONIC_UI_PORT`). Audio still needs `mpv`.
+`--hostname` and `--port` choose where the page listens (`FERROSONIC_UI_HOST`, `FERROSONIC_UI_PORT`). Audio needs `mpv` (installed by the script).
 
 Restart or stop the background service:
 
