@@ -319,6 +319,7 @@ export function snapshotFromDaemonState(
       channels: str(nowPlaying.channels) ?? null,
       codec: str(nowPlaying.codec) ?? null,
       bitrateKbps: num(nowPlaying.bitrate_kbps) ?? null,
+      cacheSecs: num(nowPlaying.cache_secs) ?? null,
     },
   };
 }

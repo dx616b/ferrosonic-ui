@@ -16,6 +16,7 @@ export function formatQuality(np: {
   sampleRate?: number | null;
   channels?: string | null;
   bitrateKbps?: number | null;
+  cacheSecs?: number | null;
 }): string | null {
   const parts: string[] = [];
   if (np.codec) parts.push(np.codec.toUpperCase());
@@ -26,6 +27,9 @@ export function formatQuality(np: {
   }
   if (np.channels) parts.push(np.channels);
   if (np.bitrateKbps) parts.push(`${np.bitrateKbps} kbps`);
+  if (np.cacheSecs != null && Number.isFinite(np.cacheSecs) && np.cacheSecs >= 0) {
+    parts.push(`buf ${formatTime(np.cacheSecs)}`);
+  }
   return parts.length ? parts.join(" · ") : null;
 }
 

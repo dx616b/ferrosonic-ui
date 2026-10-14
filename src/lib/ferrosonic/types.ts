@@ -76,6 +76,8 @@ export interface NowPlaying {
   channels?: string | null;
   codec?: string | null;
   bitrateKbps?: number | null;
+  /** Seconds of audio in mpv's demuxer cache; null until reported. */
+  cacheSecs?: number | null;
 }
 
 export interface PlayerSnapshot {
