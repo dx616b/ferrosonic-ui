@@ -9,10 +9,34 @@ permissions:
   contents: write
 
 jobs:
+  # GitHub-hosted availability probe. Mirrors StreamX docker-publish.yml:
+  # when ubuntu-latest cannot be assigned this job fails but
+  # continue-on-error lets the build fall back to self-hosted.
+  host_probe:
+    name: GitHub-hosted probe
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    outputs:
+      hosted: ${{ steps.set.outputs.hosted }}
+    steps:
+      - id: set
+        run: echo "hosted=ubuntu-latest" >> "$GITHUB_OUTPUT"
+
   build-and-release:
     name: Build ferrosonic-ui executable
-    runs-on: ubuntu-latest
+    needs: host_probe
+    runs-on: ${{ needs.host_probe.outputs.hosted || 'self-hosted' }}
     steps:
+      - name: Preflight tool check
+        run: |
+          for t in git curl tar node npm bun cargo rustc zig cargo-zigbuild gh; do
+            if command -v "$t" >/dev/null 2>&1; then
+              echo "$t: $($t --version 2>&1 | head -n1)"
+            else
+              echo "$t: MISSING (a later step installs it)"
+            fi
+          done
+
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
