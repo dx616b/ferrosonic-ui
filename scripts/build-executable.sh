@@ -31,9 +31,9 @@ mkdir -p player dist
 if [ -n "${FERROSONIC_PLAYER:-}" ]; then
   cp "$FERROSONIC_PLAYER" player/ferrosonic
 else
-  SRC="${FERROSONIC_SRC:-../ferrosonic-ng}"
+  SRC="${FERROSONIC_SRC:-./ferrosonic-ng}"
   if [ ! -f "$SRC/Cargo.toml" ]; then
-    echo "Set FERROSONIC_PLAYER, or place the ferrosonic-ng checkout at $SRC"
+    echo "Set FERROSONIC_PLAYER, or run: git submodule update --init"
     exit 1
   fi
   if ! command -v cargo >/dev/null 2>&1; then
