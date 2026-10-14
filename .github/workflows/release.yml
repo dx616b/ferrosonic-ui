@@ -38,6 +38,8 @@ jobs:
           done
 
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - uses: actions/setup-node@v4
         with:
@@ -46,18 +48,13 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - uses: actions/checkout@v6
-        with:
-          repository: dx616b/ferrosonic-ng
-          path: ferrosonic-src
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ferrosonic-src
+          workspaces: ferrosonic-ng
           key: musl-player
 
       - name: Install zig (cargo-zigbuild backend)
@@ -74,7 +71,7 @@ jobs:
           tool: cargo-zigbuild
 
       - name: Build ferrosonic player
-        working-directory: ferrosonic-src
+        working-directory: ferrosonic-ng
         env:
           CARGO_ZIGBUILD_ZIG_PATH: ${{ github.workspace }}/scripts/zig-link
         run: |
@@ -88,7 +85,7 @@ jobs:
 
       - name: Build executable
         env:
-          FERROSONIC_PLAYER: ferrosonic-src/target/x86_64-unknown-linux-musl/release/ferrosonic
+          FERROSONIC_PLAYER: ferrosonic-ng/target/x86_64-unknown-linux-musl/release/ferrosonic
         run: ./scripts/build-executable.sh
 
       - name: Stage versioned artifact

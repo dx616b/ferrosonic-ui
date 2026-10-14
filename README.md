@@ -33,9 +33,11 @@ systemctl --user restart ferrosonic-ui.service
 systemctl --user stop ferrosonic-ui.service
 ```
 
-Build the binary yourself (needs Node.js and [Bun](https://bun.sh)):
+Build the binary yourself (needs Node.js and [Bun](https://bun.sh)).
+The player source lives in the `ferrosonic-ng` submodule:
 
 ```bash
+git submodule update --init
 npm install
 npm run build:exe
 ./dist/ferrosonic-ui

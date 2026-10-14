@@ -1,0 +1,3 @@
+[submodule "ferrosonic-ng"]
+	path = ferrosonic-ng
+	url = https://github.com/dx616b/ferrosonic-ng.git
